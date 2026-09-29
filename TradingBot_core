@@ -2577,3 +2577,109 @@ class TechnicalEngine:
 
             "setup": setup
         }
+class AIAnalysis(BaseModel):
+    direction: str = Field(description="LONG, SHORT, or NEUTRAL")
+    decision: str = Field(description="TAKE, CONSIDER, or IGNORE")
+    confidence: float
+    setup: str
+    regime: str
+    risk_flags: list[str]
+    reason: str
+
+
+class AIEngine:
+    SYSTEM_PROMPT = """
+You are a conservative futures market analysis assistant.
+
+You DO NOT execute trades.
+You DO NOT calculate position size.
+You DO NOT choose leverage.
+You DO NOT override the risk engine.
+
+Your job is to review an already filtered technical setup.
+
+Possible directions:
+LONG, SHORT, NEUTRAL
+
+Possible decisions:
+TAKE, CONSIDER, IGNORE
+
+Rules:
+1. Never invent market data, prices, or indicators.
+2. Do not calculate position size.
+3. Do not choose leverage.
+4. Do not override risk controls.
+5. Consider 10m, 1h, and 4h alignment.
+6. Consider BTC context.
+7. Penalize conflicting higher-timeframe trends.
+8. Penalize weak volume.
+9. Penalize extreme RSI conditions.
+10. If evidence is mixed or uncertain, prefer CONSIDER or IGNORE.
+11. Be conservative.
+12. Return ONLY the requested JSON schema.
+"""
+
+    def __init__(self):
+        self.client = None
+
+        if Config.GEMINI_API_KEY:
+            try:
+                self.client = genai.Client(
+                    api_key=Config.GEMINI_API_KEY
+                )
+                logging.info("Gemini AI initialized successfully.")
+            except Exception as e:
+                logging.error(f"Gemini initialization error: {e}")
+
+    def analyze(self, snapshot):
+        if not self.client:
+            return {
+                "direction": "NEUTRAL",
+                "decision": "IGNORE",
+                "confidence": 0,
+                "setup": "UNKNOWN",
+                "regime": "UNKNOWN",
+                "risk_flags": ["AI_UNAVAILABLE"],
+                "reason": "Gemini AI is not available."
+            }
+
+        try:
+            return self.gemini(snapshot)
+
+        except Exception as e:
+            logging.error(f"Gemini error: {e}")
+
+            return {
+                "direction": "NEUTRAL",
+                "decision": "IGNORE",
+                "confidence": 0,
+                "setup": "UNKNOWN",
+                "regime": "UNKNOWN",
+                "risk_flags": ["AI_ERROR"],
+                "reason": "Gemini analysis failed safely."
+            }
+
+    def gemini(self, snapshot):
+        prompt = (
+            self.SYSTEM_PROMPT
+            + "\n\nMARKET SNAPSHOT:\n"
+            + json.dumps(
+                snapshot,
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            )
+        )
+
+        response = self.client.models.generate_content(
+            model=Config.GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=AIAnalysis
+            )
+        )
+
+        result = AIAnalysis.model_validate_json(response.text)
+
+        return result.model_dump()
