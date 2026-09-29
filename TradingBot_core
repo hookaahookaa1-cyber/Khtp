@@ -3444,11 +3444,16 @@ self.execution = ExecutionEngine()
             )
 
         if self.mode == "AUTO":
-            message += (
-                "\n\n🤖 AUTO MODE\n"
-                "Signal passed technical, AI and risk filters.\n"
-                "Execution layer will handle the order."
-            )
+    execution_result = self.execution.execute(
+        order_plan,
+        mode=self.mode
+    )
+
+    message += (
+        "\n\n🤖 AUTO MODE\n"
+        "Signal passed technical, AI and risk filters.\n"
+        f"Execution: {execution_result.get('error', 'N/A')}"
+    )
         else:
             message += (
                 "\n\n🖐 MANUAL MODE\n"
