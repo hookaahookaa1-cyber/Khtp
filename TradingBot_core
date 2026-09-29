@@ -31,11 +31,14 @@ class Config:
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
     # -------------------------
-    # Gemini
-    # -------------------------
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+ # Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
+# Bitget
+BITGET_API_KEY = os.getenv("BITGET_API_KEY", "")
+BITGET_SECRET = os.getenv("BITGET_SECRET", "")
+BITGET_PASSWORD = os.getenv("BITGET_PASSWORD", "")
     # -------------------------
     # Market
     # -------------------------
