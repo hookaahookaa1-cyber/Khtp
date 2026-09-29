@@ -3380,8 +3380,11 @@ self.execution = ExecutionEngine()
             "tp1": risk["tp1"],
             "tp2": risk["tp2"],
             "risk_reward": risk["risk_reward"],
-            "ai_reason": ai["reason"],
-            "risk_flags": all_flags
+"ai_reason": ai["reason"],
+"execution_environment": order_plan["environment"],
+"execution_ready": order_plan["ready"],
+"execution_quantity": order_plan["quantity"],
+"risk_flags": all_flags
         }
 
         signal_id = self.db.save_signal(signal)
