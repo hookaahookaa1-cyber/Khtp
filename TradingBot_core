@@ -3383,7 +3383,10 @@ self.execution = ExecutionEngine()
             direction=tech["direction"],
             entry=tech["price"],
             atr=tech["atr"],
-            capital=self.config.CAPITAL,
+            capital=(
+    self.get_exchange_equity()
+    or self.config.CAPITAL
+),
             risk_pct=self.config.RISK_PER_TRADE,
             leverage=leverage,
             support=tech["support"],
