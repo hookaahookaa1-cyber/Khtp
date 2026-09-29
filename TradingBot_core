@@ -35,10 +35,18 @@ class Config:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
-# Bitget
-BITGET_API_KEY = os.getenv("BITGET_API_KEY", "")
-BITGET_SECRET = os.getenv("BITGET_SECRET", "")
-BITGET_PASSWORD = os.getenv("BITGET_PASSWORD", "")
+# Bitget Trading Environment
+TRADING_ENV = os.getenv("TRADING_ENV", "DEMO").upper()
+
+# Live API
+BITGET_LIVE_API_KEY = os.getenv("BITGET_LIVE_API_KEY", "")
+BITGET_LIVE_SECRET = os.getenv("BITGET_LIVE_SECRET", "")
+BITGET_LIVE_PASSWORD = os.getenv("BITGET_LIVE_PASSWORD", "")
+
+# Demo API
+BITGET_DEMO_API_KEY = os.getenv("BITGET_DEMO_API_KEY", "")
+BITGET_DEMO_SECRET = os.getenv("BITGET_DEMO_SECRET", "")
+BITGET_DEMO_PASSWORD = os.getenv("BITGET_DEMO_PASSWORD", "")
     # -------------------------
     # Market
     # -------------------------
