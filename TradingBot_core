@@ -3633,6 +3633,22 @@ self.execution = ExecutionEngine()
 
                     self.telegram.send(msg)
 
+                elif text == "/equity":
+                    equity = self.get_exchange_equity()
+
+                    if equity is None:
+                        self.telegram.send(
+                            "⚠️ Unable to read "
+                            "Bitget USDT equity."
+                        )
+                    else:
+                        self.telegram.send(
+                            "💰 EXCHANGE EQUITY\n\n"
+                            f"Environment: "
+                            f"{self.execution.environment}\n"
+                            f"USDT Equity: "
+                            f"${equity:.2f}"
+                        )
                 elif text == "/stats":
                     stats = self.db.stats()
 
