@@ -2866,6 +2866,42 @@ class ExecutionEngine:
     def is_ready(self):
         return self.exchange is not None
 
+    def fetch_equity(self):
+        if not self.is_ready():
+            return None
+
+        try:
+            balance = self.exchange.fetch_balance()
+
+            usdt = balance.get("USDT", {})
+
+            total = usdt.get("total")
+
+            if total is None:
+                total = usdt.get("free")
+
+            if total is None:
+                logging.warning(
+                    "USDT equity could not be determined."
+                )
+                return None
+
+            equity = float(total)
+
+            if equity <= 0:
+                logging.warning(
+                    f"Invalid USDT equity: {equity}"
+                )
+                return None
+
+            return equity
+
+        except Exception as e:
+            logging.error(
+                f"Equity fetch error: {e}"
+            )
+            return None
+
     def market_info(self, symbol):
         if not self.is_ready():
             return None
