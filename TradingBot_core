@@ -3328,7 +3328,24 @@ self.execution = ExecutionEngine()
 
         if not risk:
             return
+        order_plan = self.execution.prepare_order(
+            symbol=symbol,
+            direction=tech["direction"],
+            quantity=risk["quantity"],
+            leverage=leverage,
+            entry=risk["entry"],
+            stop=risk["stop"],
+            tp1=risk["tp1"],
+            tp2=risk["tp2"]
+        )
 
+        if not order_plan.get("ready"):
+            logging.warning(
+                f"Execution validation failed for "
+                f"{symbol}: "
+                f"{order_plan.get('error')}"
+            )
+            return
         key = (
             symbol,
             tech["direction"]
