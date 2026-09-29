@@ -3085,7 +3085,8 @@ class ExecutionEngine:
         }
 class TradingBot:
     def __init__(self):
-        self.config = Config()
+        self.ai = AIEngine()
+self.execution = ExecutionEngine()
         self.db = Database(
             self.config.DB_FILE,
             initial_capital=self.config.CAPITAL
