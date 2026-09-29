@@ -3165,6 +3165,21 @@ self.execution = ExecutionEngine()
 
         return True
 
+    def get_exchange_equity(self):
+        equity = self.execution.fetch_equity()
+
+        if equity is None:
+            logging.warning(
+                "Exchange equity is unavailable."
+            )
+            return None
+
+        logging.info(
+            f"Bitget {self.execution.environment} "
+            f"USDT equity: ${equity:.2f}"
+        )
+
+        return equity
     def btc_context(self):
         try:
             df1 = self.market.fetch(
