@@ -3341,6 +3341,33 @@ self.execution = ExecutionEngine()
 
         if not risk:
             return
+        # ====================================================
+        # RISK GUARDS
+        # ====================================================
+
+        open_trades = self.db.get_open_trades()
+
+        if len(open_trades) >= self.config.MAX_OPEN_PLANS:
+            logging.warning(
+                f"Max open trades reached: "
+                f"{len(open_trades)}/"
+                f"{self.config.MAX_OPEN_PLANS}"
+            )
+            return
+
+        daily = self.db.get_daily_pnl()
+
+        daily_loss_limit = (
+            self.config.CAPITAL
+            * self.config.MAX_DAILY_LOSS
+        )
+
+        if daily["pnl"] <= -daily_loss_limit:
+            logging.warning(
+                f"Daily loss limit reached: "
+                f"${daily['pnl']:.2f}"
+            )
+            return
         order_plan = self.execution.prepare_order(
             symbol=symbol,
             direction=tech["direction"],
