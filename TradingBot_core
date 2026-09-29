@@ -3062,15 +3062,28 @@ class ExecutionEngine:
             "execution_enabled": False
         }
 
-    def execute(self, order_plan):
+        def execute(self, order_plan, mode="MANUAL"):
         """
         Execution is intentionally disabled in this stage.
         No Bitget order is submitted.
         """
 
+        if mode != "AUTO":
+            return {
+                "success": False,
+                "executed": False,
+                "environment": self.environment,
+                "error": (
+                    "Automatic execution is blocked "
+                    "because the bot is not in AUTO mode."
+                )
+            }
+
         if not order_plan:
             return {
                 "success": False,
+                "executed": False,
+                "environment": self.environment,
                 "error": "Empty order plan."
             }
 
