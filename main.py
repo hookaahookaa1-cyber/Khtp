@@ -3178,7 +3178,7 @@ class ExecutionEngine:
             "execution_enabled": False
         }
 
-            def execute(self, order_plan, mode="MANUAL"):
+    def execute(self, order_plan, mode="MANUAL"):
         if mode != "AUTO":
             return {
                 "success": False,
@@ -3207,7 +3207,6 @@ class ExecutionEngine:
                 "the initial validation stage."
             )
         }
-
 
 class TradingBot:
     def __init__(self):
