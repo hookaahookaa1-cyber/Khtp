@@ -3115,7 +3115,7 @@ class ExecutionEngine:
 
         return True, "Order validation passed."
 
-        def prepare_order(
+    def prepare_order(
         self,
         symbol,
         direction,
