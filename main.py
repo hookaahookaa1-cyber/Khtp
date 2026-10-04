@@ -3115,7 +3115,7 @@ class ExecutionEngine:
 
         return True, "Order validation passed."
 
-    def prepare_order(
+        def prepare_order(
         self,
         symbol,
         direction,
@@ -3178,7 +3178,7 @@ class ExecutionEngine:
             "execution_enabled": False
         }
 
-def execute(self, order_plan, mode="MANUAL"):
+    def execute(self, order_plan, mode="MANUAL"):
         """
         Execution is intentionally disabled in this stage.
         No Bitget order is submitted.
@@ -3212,17 +3212,18 @@ def execute(self, order_plan, mode="MANUAL"):
                 "the initial validation stage."
             )
         }
+
+
 class TradingBot:
     def __init__(self):
         self.ai = AIEngine()
-self.execution = ExecutionEngine()
+        self.execution = ExecutionEngine()
         self.db = Database(
             self.config.DB_FILE,
             initial_capital=self.config.CAPITAL
         )
         self.telegram = Telegram()
         self.market = Market()
-        self.ai = AIEngine()
 
         # AUTO is the default mode.
         # AUTO = automatic execution enabled.
@@ -3231,6 +3232,7 @@ self.execution = ExecutionEngine()
 
         self.last_signal = {}
         self.running = True
+
 
     def set_mode(self, mode):
         mode = str(mode).upper()
