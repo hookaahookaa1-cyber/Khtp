@@ -3178,7 +3178,7 @@ class ExecutionEngine:
             "execution_enabled": False
         }
 
-    def execute(self, order_plan, mode="MANUAL"):
+def execute(self, order_plan, mode="MANUAL"):
         """
         Execution is intentionally disabled in this stage.
         No Bitget order is submitted.
