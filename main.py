@@ -1,4 +1,3 @@
-
 import os
 import json
 import time
@@ -7,12 +6,10 @@ import sqlite3
 import logging
 import threading
 from datetime import datetime, date, timedelta
-
 import requests
 import numpy as np
 import pandas as pd
 import ccxt
-
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from google import genai
@@ -31,26 +28,26 @@ class Config:
     # -------------------------
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-
+    
     # -------------------------
     # Gemini
     # -------------------------
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
-
+    
     # Bitget Trading Environment
     TRADING_ENV = os.getenv("TRADING_ENV", "DEMO").upper()
-
+    
     # Live API
     BITGET_LIVE_API_KEY = os.getenv("BITGET_LIVE_API_KEY", "")
     BITGET_LIVE_SECRET = os.getenv("BITGET_LIVE_SECRET", "")
     BITGET_LIVE_PASSWORD = os.getenv("BITGET_LIVE_PASSWORD", "")
-
+    
     # Demo API
     BITGET_DEMO_API_KEY = os.getenv("BITGET_DEMO_API_KEY", "")
     BITGET_DEMO_SECRET = os.getenv("BITGET_DEMO_SECRET", "")
     BITGET_DEMO_PASSWORD = os.getenv("BITGET_DEMO_PASSWORD", "")
-
+    
     # -------------------------
     # Market
     # -------------------------
@@ -63,7 +60,7 @@ class Config:
     TF_MAIN = "10m"
     TF_1H = "1h"
     TF_4H = "4h"
-
+    
     # -------------------------
     # Risk
     # -------------------------
@@ -79,36 +76,29 @@ class Config:
     DB_FILE = "data/bot.db"
 
 
-
 # ============================================================
 # DATABASE
 # ============================================================
-
 class Database:
     def __init__(self, filename, initial_capital=None):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
-
         self.conn = sqlite3.connect(
             filename,
             check_same_thread=False
         )
-
         self.lock = threading.Lock()
-
         if initial_capital is None:
             initial_capital = float(
                 os.getenv("CAPITAL", "1000")
             )
-
         self.initial_capital = initial_capital
-
         self.create_tables()
         self.initialize_portfolio(initial_capital)
 
     def create_tables(self):
         with self.lock:
             cur = self.conn.cursor()
-
+            
             # ------------------------------------------------
             # SIGNALS
             # ------------------------------------------------
@@ -133,7 +123,7 @@ class Database:
                 risk_flags TEXT
             )
             """)
-
+            
             # ------------------------------------------------
             # TRADES
             # ------------------------------------------------
@@ -155,7 +145,7 @@ class Database:
                 closed_at TEXT
             )
             """)
-
+            
             # ------------------------------------------------
             # DAILY STATS
             # ------------------------------------------------
@@ -166,10 +156,9 @@ class Database:
                 trades INTEGER DEFAULT 0
             )
             """)
-
+            
             # ------------------------------------------------
             # PORTFOLIO STATE
-            # One permanent row for the account
             # ------------------------------------------------
             cur.execute("""
             CREATE TABLE IF NOT EXISTS portfolio (
@@ -185,10 +174,9 @@ class Database:
                 updated_at TEXT
             )
             """)
-
+            
             # ------------------------------------------------
             # MONEY MOVEMENTS
-            # Deposits / Withdrawals / Adjustments
             # ------------------------------------------------
             cur.execute("""
             CREATE TABLE IF NOT EXISTS portfolio_transactions (
@@ -200,10 +188,9 @@ class Database:
                 note TEXT
             )
             """)
-
+            
             # ------------------------------------------------
             # EQUITY HISTORY
-            # Used for drawdown and long-term performance
             # ------------------------------------------------
             cur.execute("""
             CREATE TABLE IF NOT EXISTS equity_snapshots (
@@ -214,11 +201,9 @@ class Database:
                 drawdown REAL
             )
             """)
-
+            
             # ------------------------------------------------
             # LEARNING DATA
-            # Stores the information surrounding each trade
-            # so performance can be analyzed later.
             # ------------------------------------------------
             cur.execute("""
             CREATE TABLE IF NOT EXISTS learning_records (
@@ -245,28 +230,19 @@ class Database:
                 created_at TEXT
             )
             """)
-
             self.conn.commit()
 
-    # ========================================================
-    # PORTFOLIO INITIALIZATION
-    # ========================================================
-
     def initialize_portfolio(self, initial_capital):
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             SELECT id
             FROM portfolio
             WHERE id = 1
             """)
-
             row = cur.fetchone()
-
             if not row:
                 now = datetime.utcnow().isoformat()
-
                 cur.execute("""
                 INSERT INTO portfolio (
                     id,
@@ -287,7 +263,6 @@ class Database:
                     initial_capital,
                     now
                 ))
-
                 cur.execute("""
                 INSERT INTO portfolio_transactions (
                     timestamp,
@@ -304,7 +279,6 @@ class Database:
                     initial_capital,
                     "Initial trading capital"
                 ))
-
                 cur.execute("""
                 INSERT INTO equity_snapshots (
                     timestamp,
@@ -319,92 +293,11 @@ class Database:
                     initial_capital,
                     0
                 ))
-
                 self.conn.commit()
-
-
-    # ========================================================
-    # PORTFOLIO INITIALIZATION
-    # ========================================================
-
-    def initialize_portfolio(self, initial_capital):
-        with self.lock:
-            cur = self.conn.cursor()
-
-            cur.execute("""
-            SELECT id
-            FROM portfolio
-            WHERE id = 1
-            """)
-
-            row = cur.fetchone()
-
-            if not row:
-                now = datetime.utcnow().isoformat()
-
-                cur.execute("""
-                INSERT INTO portfolio (
-                    id,
-                    initial_capital,
-                    current_equity,
-                    peak_equity,
-                    realized_pnl,
-                    total_deposits,
-                    total_withdrawals,
-                    total_fees,
-                    total_funding,
-                    updated_at
-                )
-                VALUES (1, ?, ?, ?, 0, 0, 0, 0, 0, ?)
-                """, (
-                    initial_capital,
-                    initial_capital,
-                    initial_capital,
-                    now
-                ))
-
-                cur.execute("""
-                INSERT INTO portfolio_transactions (
-                    timestamp,
-                    transaction_type,
-                    amount,
-                    balance_after,
-                    note
-                )
-                VALUES (?, ?, ?, ?, ?)
-                """, (
-                    now,
-                    "INITIAL_CAPITAL",
-                    initial_capital,
-                    initial_capital,
-                    "Initial trading capital"
-                ))
-
-                cur.execute("""
-                INSERT INTO equity_snapshots (
-                    timestamp,
-                    equity,
-                    peak_equity,
-                    drawdown
-                )
-                VALUES (?, ?, ?, ?)
-                """, (
-                    now,
-                    initial_capital,
-                    initial_capital,
-                    0
-                ))
-
-                self.conn.commit()
-
-    # ========================================================
-    # SAVE SIGNAL
-    # ========================================================
 
     def save_signal(self, data):
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             INSERT INTO signals (
                 timestamp,
@@ -443,14 +336,8 @@ class Database:
                 data["ai_reason"],
                 json.dumps(data["risk_flags"])
             ))
-
             self.conn.commit()
-
             return cur.lastrowid
-
-    # ========================================================
-    # OPEN TRADE
-    # ========================================================
 
     def open_trade(
         self,
@@ -464,7 +351,6 @@ class Database:
     ):
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             INSERT INTO trades (
                 signal_id,
@@ -487,19 +373,12 @@ class Database:
                 leverage,
                 datetime.utcnow().isoformat()
             ))
-
             self.conn.commit()
-
             return cur.lastrowid
-
-    # ========================================================
-    # CLOSE TRADE
-    # ========================================================
 
     def close_trade(self, trade_id, exit_price):
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             SELECT
                 signal_id,
@@ -513,12 +392,9 @@ class Database:
             FROM trades
             WHERE id = ?
             """, (trade_id,))
-
             row = cur.fetchone()
-
             if not row:
                 return None
-
             (
                 signal_id,
                 symbol,
@@ -529,52 +405,37 @@ class Database:
                 leverage,
                 opened_at
             ) = row
-
-            # -----------------------------------------------
-            # Calculate PnL
-            # -----------------------------------------------
-
+            
             if direction == "LONG":
                 pnl = (exit_price - entry) * quantity
             else:
                 pnl = (entry - exit_price) * quantity
-
+            
             risk = abs(entry - stop) * quantity
-
             r_multiple = (
                 pnl / risk
                 if risk > 0
                 else 0
             )
-
+            
             if pnl > 0:
                 result = "WIN"
             elif pnl < 0:
                 result = "LOSS"
             else:
                 result = "BREAKEVEN"
-
+            
             closed_at = datetime.utcnow().isoformat()
-
-            # -----------------------------------------------
-            # Holding time
-            # -----------------------------------------------
-
+            
             try:
                 opened_dt = datetime.fromisoformat(opened_at)
                 closed_dt = datetime.fromisoformat(closed_at)
-
                 holding_minutes = (
                     closed_dt - opened_dt
                 ).total_seconds() / 60
-
             except Exception:
                 holding_minutes = 0
-
-            # -----------------------------------------------
-            # Update trade
-            # -----------------------------------------------
-
+            
             cur.execute("""
             UPDATE trades
             SET
@@ -592,13 +453,8 @@ class Database:
                 closed_at,
                 trade_id
             ))
-
-            # -----------------------------------------------
-            # Update daily statistics
-            # -----------------------------------------------
-
+            
             day = closed_at[:10]
-
             cur.execute("""
             INSERT INTO daily_stats (
                 day,
@@ -614,11 +470,7 @@ class Database:
                 day,
                 pnl
             ))
-
-            # -----------------------------------------------
-            # Update portfolio
-            # -----------------------------------------------
-
+            
             cur.execute("""
             SELECT
                 initial_capital,
@@ -632,9 +484,7 @@ class Database:
             FROM portfolio
             WHERE id = 1
             """)
-
             portfolio = cur.fetchone()
-
             if portfolio:
                 (
                     initial_capital,
@@ -646,19 +496,15 @@ class Database:
                     total_fees,
                     total_funding
                 ) = portfolio
-
                 current_equity += pnl
                 realized_pnl += pnl
-
                 if current_equity > peak_equity:
                     peak_equity = current_equity
-
                 drawdown = (
                     ((peak_equity - current_equity) / peak_equity) * 100
                     if peak_equity > 0
                     else 0
                 )
-
                 cur.execute("""
                 UPDATE portfolio
                 SET
@@ -673,7 +519,6 @@ class Database:
                     realized_pnl,
                     closed_at
                 ))
-
                 cur.execute("""
                 INSERT INTO equity_snapshots (
                     timestamp,
@@ -688,546 +533,7 @@ class Database:
                     peak_equity,
                     drawdown
                 ))
-
-            self.conn.commit()
-# ============================================================
-# DATABASE
-# ============================================================
-
-class Database:
-    def __init__(self, filename, initial_capital=None):
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-        self.conn = sqlite3.connect(
-            filename,
-            check_same_thread=False
-        )
-
-        self.lock = threading.Lock()
-
-        if initial_capital is None:
-            initial_capital = float(
-                os.getenv("CAPITAL", "1000")
-            )
-
-        self.initial_capital = initial_capital
-
-        self.create_tables()
-        self.initialize_portfolio(initial_capital)
-
-    def create_tables(self):
-        with self.lock:
-            cur = self.conn.cursor()
-
-            # ------------------------------------------------
-            # SIGNALS
-            # ------------------------------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS signals (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                symbol TEXT,
-                direction TEXT,
-                price REAL,
-                tech_score REAL,
-                ai_confidence REAL,
-                ai_decision TEXT,
-                setup TEXT,
-                regime TEXT,
-                entry REAL,
-                stop REAL,
-                tp1 REAL,
-                tp2 REAL,
-                risk_reward REAL,
-                ai_reason TEXT,
-                risk_flags TEXT
-            )
-            """)
-
-            # ------------------------------------------------
-            # TRADES
-            # ------------------------------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS trades (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                signal_id INTEGER,
-                symbol TEXT,
-                direction TEXT,
-                entry REAL,
-                stop REAL,
-                exit REAL,
-                quantity REAL,
-                leverage REAL,
-                pnl REAL,
-                r_multiple REAL,
-                result TEXT,
-                opened_at TEXT,
-                closed_at TEXT
-            )
-            """)
-
-            # ------------------------------------------------
-            # DAILY STATS
-            # ------------------------------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS daily_stats (
-                day TEXT PRIMARY KEY,
-                pnl REAL DEFAULT 0,
-                trades INTEGER DEFAULT 0
-            )
-            """)
-
-            # ------------------------------------------------
-            # PORTFOLIO STATE
-            # One permanent row for the account
-            # ------------------------------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS portfolio (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                initial_capital REAL DEFAULT 0,
-                current_equity REAL DEFAULT 0,
-                peak_equity REAL DEFAULT 0,
-                realized_pnl REAL DEFAULT 0,
-                total_deposits REAL DEFAULT 0,
-                total_withdrawals REAL DEFAULT 0,
-                total_fees REAL DEFAULT 0,
-                total_funding REAL DEFAULT 0,
-                updated_at TEXT
-            )
-            """)
-
-            # ------------------------------------------------
-            # MONEY MOVEMENTS
-            # Deposits / Withdrawals / Adjustments
-            # ------------------------------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS portfolio_transactions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                transaction_type TEXT,
-                amount REAL,
-                balance_after REAL,
-                note TEXT
-            )
-            """)
-
-            # ------------------------------------------------
-            # EQUITY HISTORY
-            # Used for drawdown and long-term performance
-            # ------------------------------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS equity_snapshots (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                equity REAL,
-                peak_equity REAL,
-                drawdown REAL
-            )
-            """)
-
-            # ------------------------------------------------
-            # LEARNING DATA
-            # Stores the information surrounding each trade
-            # so performance can be analyzed later.
-            # ------------------------------------------------
-            cur.execute("""
-            CREATE TABLE IF NOT EXISTS learning_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                trade_id INTEGER,
-                signal_id INTEGER,
-                timestamp TEXT,
-                symbol TEXT,
-                direction TEXT,
-                setup TEXT,
-                regime TEXT,
-                tech_score REAL,
-                ai_confidence REAL,
-                entry REAL,
-                stop REAL,
-                tp1 REAL,
-                tp2 REAL,
-                leverage REAL,
-                outcome TEXT,
-                pnl REAL,
-                r_multiple REAL,
-                holding_minutes REAL,
-                features_json TEXT,
-                created_at TEXT
-            )
-            """)
-
-            self.conn.commit()
-
-    # ========================================================
-    # PORTFOLIO INITIALIZATION
-    # ========================================================
-
-    def initialize_portfolio(self, initial_capital):
-        with self.lock:
-            cur = self.conn.cursor()
-
-            cur.execute("""
-            SELECT id
-            FROM portfolio
-            WHERE id = 1
-            """)
-
-            row = cur.fetchone()
-
-            if not row:
-                now = datetime.utcnow().isoformat()
-
-                cur.execute("""
-                INSERT INTO portfolio (
-                    id,
-                    initial_capital,
-                    current_equity,
-                    peak_equity,
-                    realized_pnl,
-                    total_deposits,
-                    total_withdrawals,
-                    total_fees,
-                    total_funding,
-                    updated_at
-                )
-                VALUES (1, ?, ?, ?, 0, 0, 0, 0, 0, ?)
-                """, (
-                    initial_capital,
-                    initial_capital,
-                    initial_capital,
-                    now
-                ))
-
-                cur.execute("""
-                INSERT INTO portfolio_transactions (
-                    timestamp,
-                    transaction_type,
-                    amount,
-                    balance_after,
-                    note
-                )
-                VALUES (?, ?, ?, ?, ?)
-                """, (
-                    now,
-                    "INITIAL_CAPITAL",
-                    initial_capital,
-                    initial_capital,
-                    "Initial trading capital"
-                ))
-
-                cur.execute("""
-                INSERT INTO equity_snapshots (
-                    timestamp,
-                    equity,
-                    peak_equity,
-                    drawdown
-                )
-                VALUES (?, ?, ?, ?)
-                """, (
-                    now,
-                    initial_capital,
-                    initial_capital,
-                    0
-                ))
-
-                self.conn.commit()
-
-    # ========================================================
-    # SAVE SIGNAL
-    # ========================================================
-
-    def save_signal(self, data):
-        with self.lock:
-            cur = self.conn.cursor()
-
-            cur.execute("""
-            INSERT INTO signals (
-                timestamp,
-                symbol,
-                direction,
-                price,
-                tech_score,
-                ai_confidence,
-                ai_decision,
-                setup,
-                regime,
-                entry,
-                stop,
-                tp1,
-                tp2,
-                risk_reward,
-                ai_reason,
-                risk_flags
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                datetime.utcnow().isoformat(),
-                data["symbol"],
-                data["direction"],
-                data["price"],
-                data["tech_score"],
-                data["ai_confidence"],
-                data["ai_decision"],
-                data["setup"],
-                data["regime"],
-                data["entry"],
-                data["stop"],
-                data["tp1"],
-                data["tp2"],
-                data["risk_reward"],
-                data["ai_reason"],
-                json.dumps(data["risk_flags"])
-            ))
-
-            self.conn.commit()
-
-            return cur.lastrowid
-
-    # ========================================================
-    # OPEN TRADE
-    # ========================================================
-
-    def open_trade(
-        self,
-        signal_id,
-        symbol,
-        direction,
-        entry,
-        stop,
-        quantity,
-        leverage
-    ):
-        with self.lock:
-            cur = self.conn.cursor()
-
-            cur.execute("""
-            INSERT INTO trades (
-                signal_id,
-                symbol,
-                direction,
-                entry,
-                stop,
-                quantity,
-                leverage,
-                opened_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                signal_id,
-                symbol,
-                direction,
-                entry,
-                stop,
-                quantity,
-                leverage,
-                datetime.utcnow().isoformat()
-            ))
-
-            self.conn.commit()
-
-            return cur.lastrowid
-
-    # ========================================================
-    # CLOSE TRADE
-    # ========================================================
-
-    def close_trade(self, trade_id, exit_price):
-        with self.lock:
-            cur = self.conn.cursor()
-
-            cur.execute("""
-            SELECT
-                signal_id,
-                symbol,
-                direction,
-                entry,
-                stop,
-                quantity,
-                leverage,
-                opened_at
-            FROM trades
-            WHERE id = ?
-            """, (trade_id,))
-
-            row = cur.fetchone()
-
-            if not row:
-                return None
-
-            (
-                signal_id,
-                symbol,
-                direction,
-                entry,
-                stop,
-                quantity,
-                leverage,
-                opened_at
-            ) = row
-
-            # -----------------------------------------------
-            # Calculate PnL
-            # -----------------------------------------------
-
-            if direction == "LONG":
-                pnl = (exit_price - entry) * quantity
-            else:
-                pnl = (entry - exit_price) * quantity
-
-            risk = abs(entry - stop) * quantity
-
-            r_multiple = (
-                pnl / risk
-                if risk > 0
-                else 0
-            )
-
-            if pnl > 0:
-                result = "WIN"
-            elif pnl < 0:
-                result = "LOSS"
-            else:
-                result = "BREAKEVEN"
-
-            closed_at = datetime.utcnow().isoformat()
-
-            # -----------------------------------------------
-            # Holding time
-            # -----------------------------------------------
-
-            try:
-                opened_dt = datetime.fromisoformat(opened_at)
-                closed_dt = datetime.fromisoformat(closed_at)
-
-                holding_minutes = (
-                    closed_dt - opened_dt
-                ).total_seconds() / 60
-
-            except Exception:
-                holding_minutes = 0
-
-            # -----------------------------------------------
-            # Update trade
-            # -----------------------------------------------
-
-            cur.execute("""
-            UPDATE trades
-            SET
-                exit = ?,
-                pnl = ?,
-                r_multiple = ?,
-                result = ?,
-                closed_at = ?
-            WHERE id = ?
-            """, (
-                exit_price,
-                pnl,
-                r_multiple,
-                result,
-                closed_at,
-                trade_id
-            ))
-
-            # -----------------------------------------------
-            # Update daily statistics
-            # -----------------------------------------------
-
-            day = closed_at[:10]
-
-            cur.execute("""
-            INSERT INTO daily_stats (
-                day,
-                pnl,
-                trades
-            )
-            VALUES (?, ?, 1)
-            ON CONFLICT(day)
-            DO UPDATE SET
-                pnl = pnl + excluded.pnl,
-                trades = trades + 1
-            """, (
-                day,
-                pnl
-            ))
-
-            # -----------------------------------------------
-            # Update portfolio
-            # -----------------------------------------------
-
-            cur.execute("""
-            SELECT
-                initial_capital,
-                current_equity,
-                peak_equity,
-                realized_pnl,
-                total_deposits,
-                total_withdrawals,
-                total_fees,
-                total_funding
-            FROM portfolio
-            WHERE id = 1
-            """)
-
-            portfolio = cur.fetchone()
-
-            if portfolio:
-                (
-                    initial_capital,
-                    current_equity,
-                    peak_equity,
-                    realized_pnl,
-                    total_deposits,
-                    total_withdrawals,
-                    total_fees,
-                    total_funding
-                ) = portfolio
-
-                current_equity += pnl
-                realized_pnl += pnl
-
-                if current_equity > peak_equity:
-                    peak_equity = current_equity
-
-                drawdown = (
-                    ((peak_equity - current_equity) / peak_equity) * 100
-                    if peak_equity > 0
-                    else 0
-                )
-
-                cur.execute("""
-                UPDATE portfolio
-                SET
-                    current_equity = ?,
-                    peak_equity = ?,
-                    realized_pnl = ?,
-                    updated_at = ?
-                WHERE id = 1
-                """, (
-                    current_equity,
-                    peak_equity,
-                    realized_pnl,
-                    closed_at
-                ))
-
-                cur.execute("""
-                INSERT INTO equity_snapshots (
-                    timestamp,
-                    equity,
-                    peak_equity,
-                    drawdown
-                )
-                VALUES (?, ?, ?, ?)
-                """, (
-                    closed_at,
-                    current_equity,
-                    peak_equity,
-                    drawdown
-                ))
-
-            # -----------------------------------------------
-            # Save learning record
-            # -----------------------------------------------
-
+            
             self._save_learning_record(
                 cur=cur,
                 trade_id=trade_id,
@@ -1242,19 +548,13 @@ class Database:
                 r_multiple=r_multiple,
                 holding_minutes=holding_minutes
             )
-
             self.conn.commit()
-
             return {
                 "pnl": pnl,
                 "r": r_multiple,
                 "result": result,
                 "holding_minutes": holding_minutes
             }
-
-    # ========================================================
-    # LEARNING RECORD
-    # ========================================================
 
     def _save_learning_record(
         self,
@@ -1272,7 +572,6 @@ class Database:
         holding_minutes
     ):
         signal_data = {}
-
         if signal_id:
             cur.execute("""
             SELECT
@@ -1287,9 +586,7 @@ class Database:
             FROM signals
             WHERE id = ?
             """, (signal_id,))
-
             row = cur.fetchone()
-
             if row:
                 (
                     setup,
@@ -1301,7 +598,6 @@ class Database:
                     tp1,
                     tp2
                 ) = row
-
                 signal_data = {
                     "setup": setup,
                     "regime": regime,
@@ -1312,7 +608,6 @@ class Database:
                     "tp1": tp1,
                     "tp2": tp2
                 }
-
         cur.execute("""
         INSERT INTO learning_records (
             trade_id,
@@ -1360,37 +655,24 @@ class Database:
             datetime.utcnow().isoformat()
         ))
 
-    # ========================================================
-    # DEPOSIT
-    # ========================================================
-
     def add_deposit(self, amount, note=""):
         if amount <= 0:
             return False
-
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             SELECT current_equity, peak_equity
             FROM portfolio
             WHERE id = 1
             """)
-
             row = cur.fetchone()
-
             if not row:
                 return False
-
             current_equity, peak_equity = row
-
             current_equity += amount
-
             if current_equity > peak_equity:
                 peak_equity = current_equity
-
             now = datetime.utcnow().isoformat()
-
             cur.execute("""
             UPDATE portfolio
             SET
@@ -1405,7 +687,6 @@ class Database:
                 amount,
                 now
             ))
-
             cur.execute("""
             INSERT INTO portfolio_transactions (
                 timestamp,
@@ -1421,39 +702,25 @@ class Database:
                 current_equity,
                 note
             ))
-
             self.conn.commit()
-
             return True
-
-    # ========================================================
-    # WITHDRAWAL
-    # ========================================================
 
     def add_withdrawal(self, amount, note=""):
         if amount <= 0:
             return False
-
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             SELECT current_equity
             FROM portfolio
             WHERE id = 1
             """)
-
             row = cur.fetchone()
-
             if not row:
                 return False
-
             current_equity = row[0]
-
             current_equity -= amount
-
             now = datetime.utcnow().isoformat()
-
             cur.execute("""
             UPDATE portfolio
             SET
@@ -1466,7 +733,6 @@ class Database:
                 amount,
                 now
             ))
-
             cur.execute("""
             INSERT INTO portfolio_transactions (
                 timestamp,
@@ -1482,19 +748,12 @@ class Database:
                 current_equity,
                 note
             ))
-
             self.conn.commit()
-
             return True
-
-    # ========================================================
-    # PORTFOLIO STATUS
-    # ========================================================
 
     def portfolio_stats(self):
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             SELECT
                 initial_capital,
@@ -1509,12 +768,9 @@ class Database:
             FROM portfolio
             WHERE id = 1
             """)
-
             row = cur.fetchone()
-
             if not row:
                 return None
-
             (
                 initial_capital,
                 current_equity,
@@ -1526,13 +782,11 @@ class Database:
                 total_funding,
                 updated_at
             ) = row
-
             drawdown = (
                 ((peak_equity - current_equity) / peak_equity) * 100
                 if peak_equity > 0
                 else 0
             )
-
             return {
                 "initial_capital": initial_capital,
                 "current_equity": current_equity,
@@ -1546,14 +800,9 @@ class Database:
                 "updated_at": updated_at
             }
 
-    # ========================================================
-    # OPEN TRADES
-    # ========================================================
-
     def get_open_trades(self):
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             SELECT
                 id,
@@ -1567,20 +816,13 @@ class Database:
             FROM trades
             WHERE exit IS NULL
             """)
-
             return cur.fetchall()
-
-    # ========================================================
-    # DAILY PNL
-    # ========================================================
 
     def get_daily_pnl(self, day=None):
         with self.lock:
             cur = self.conn.cursor()
-
             if day is None:
                 day = datetime.utcnow().strftime("%Y-%m-%d")
-
             cur.execute("""
             SELECT
                 COALESCE(pnl, 0),
@@ -1588,28 +830,20 @@ class Database:
             FROM daily_stats
             WHERE day = ?
             """, (day,))
-
             row = cur.fetchone()
-
             if not row:
                 return {
                     "pnl": 0,
                     "trades": 0
                 }
-
             return {
                 "pnl": row[0],
                 "trades": row[1]
             }
 
-    # ========================================================
-    # GENERAL TRADING STATS
-    # ========================================================
-
     def stats(self):
         with self.lock:
             cur = self.conn.cursor()
-
             cur.execute("""
             SELECT
                 COUNT(*),
@@ -1620,21 +854,17 @@ class Database:
             FROM trades
             WHERE exit IS NOT NULL
             """)
-
             row = cur.fetchone()
-
             total = row[0] or 0
             wins = row[1] or 0
             losses = row[2] or 0
             pnl = row[3] or 0
             avg_r = row[4] or 0
-
             win_rate = (
                 wins / total * 100
                 if total
                 else 0
             )
-
             cur.execute("""
             SELECT
                 COALESCE(
@@ -1660,15 +890,12 @@ class Database:
             FROM trades
             WHERE exit IS NOT NULL
             """)
-
             gross_profit, gross_loss = cur.fetchone()
-
             profit_factor = (
                 gross_profit / gross_loss
                 if gross_loss > 0
                 else 0
             )
-
             return {
                 "total": total,
                 "wins": wins,
@@ -1678,62 +905,48 @@ class Database:
                 "avg_r": avg_r,
                 "profit_factor": profit_factor
             }
+
+
 # ============================================================
 # TELEGRAM
 # ============================================================
-
 class Telegram:
     def __init__(self):
         self.token = Config.TELEGRAM_BOT_TOKEN
         self.chat_id = Config.TELEGRAM_CHAT_ID
         self.last_update_id = 0
 
-    # ========================================================
-    # SEND MESSAGE
-    # ========================================================
-
     def send(self, text, keyboard=None):
         if not self.token or not self.chat_id:
             logging.warning("Telegram credentials missing.")
             return False
-
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-
         payload = {
             "chat_id": self.chat_id,
             "text": text,
             "parse_mode": "Markdown"
         }
-
         if keyboard:
             payload["reply_markup"] = {
                 "inline_keyboard": keyboard
             }
-
         try:
             response = requests.post(
                 url,
                 json=payload,
                 timeout=10
             )
-
             if not response.ok:
                 logging.error(
                     f"Telegram send failed: {response.text}"
                 )
                 return False
-
             return True
-
         except Exception as e:
             logging.error(
                 f"Telegram send error: {e}"
             )
             return False
-
-    # ========================================================
-    # MODE CONTROL
-    # ========================================================
 
     def mode_keyboard(self, current_mode):
         if current_mode == "AUTO":
@@ -1749,7 +962,6 @@ class Telegram:
                     }
                 ]
             ]
-
         return [
             [
                 {
@@ -1770,22 +982,15 @@ class Telegram:
             "🟢 AUTO = automatic execution enabled\n"
             "🔴 MANUAL = signals only, no automatic orders"
         )
-
         return self.send(
             text,
             self.mode_keyboard(current_mode)
         )
 
-    # ========================================================
-    # GET UPDATES
-    # ========================================================
-
     def poll(self):
         if not self.token:
             return []
-
         url = f"https://api.telegram.org/bot{self.token}/getUpdates"
-
         try:
             response = requests.get(
                 url,
@@ -1795,38 +1000,26 @@ class Telegram:
                 },
                 timeout=5
             )
-
             data = response.json()
-
             if not data.get("ok"):
                 return []
-
             updates = data.get("result", [])
-
             if updates:
                 self.last_update_id = updates[-1]["update_id"]
-
             return updates
-
         except Exception as e:
             logging.error(
                 f"Telegram poll error: {e}"
             )
             return []
 
-    # ========================================================
-    # CALLBACK RESPONSE
-    # ========================================================
-
     def answer_callback(self, callback_query_id):
         if not self.token:
             return False
-
         url = (
             f"https://api.telegram.org/"
             f"bot{self.token}/answerCallbackQuery"
         )
-
         try:
             requests.post(
                 url,
@@ -1835,20 +1028,18 @@ class Telegram:
                 },
                 timeout=5
             )
-
             return True
-
         except Exception as e:
             logging.error(
                 f"Telegram callback error: {e}"
             )
             return False
+
+
 # ============================================================
 # INDICATORS
 # ============================================================
-
 class Indicators:
-
     @staticmethod
     def ema(series, period):
         return series.ewm(
@@ -1859,22 +1050,17 @@ class Indicators:
     @staticmethod
     def rsi(series, period=14):
         delta = series.diff()
-
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
-
         avg_gain = gain.ewm(
             alpha=1 / period,
             adjust=False
         ).mean()
-
         avg_loss = loss.ewm(
             alpha=1 / period,
             adjust=False
         ).mean()
-
         rs = avg_gain / avg_loss.replace(0, np.nan)
-
         return 100 - (
             100 / (1 + rs)
         )
@@ -1885,17 +1071,14 @@ class Indicators:
             df["high"] -
             df["low"]
         )
-
         high_close = (
             df["high"] -
             df["close"].shift()
         ).abs()
-
         low_close = (
             df["low"] -
             df["close"].shift()
         ).abs()
-
         tr = pd.concat(
             [
                 high_low,
@@ -1904,7 +1087,6 @@ class Indicators:
             ],
             axis=1
         ).max(axis=1)
-
         return tr.ewm(
             alpha=1 / period,
             adjust=False
@@ -1914,43 +1096,34 @@ class Indicators:
     def macd(series):
         fast = Indicators.ema(series, 12)
         slow = Indicators.ema(series, 26)
-
         macd = fast - slow
-
         signal = Indicators.ema(
             macd,
             9
         )
-
         histogram = macd - signal
-
         return macd, signal, histogram
 
     @staticmethod
     def adx(df, period=14):
         high = df["high"]
         low = df["low"]
-
         plus_dm = high.diff()
         minus_dm = -low.diff()
-
         plus_dm = plus_dm.where(
             (plus_dm > minus_dm) &
             (plus_dm > 0),
             0
         )
-
         minus_dm = minus_dm.where(
             (minus_dm > plus_dm) &
             (minus_dm > 0),
             0
         )
-
         tr = Indicators.atr(
             df,
             period
         )
-
         plus_di = (
             100 *
             plus_dm.ewm(
@@ -1959,7 +1132,6 @@ class Indicators:
             ).mean() /
             tr.replace(0, np.nan)
         )
-
         minus_di = (
             100 *
             minus_dm.ewm(
@@ -1968,7 +1140,6 @@ class Indicators:
             ).mean() /
             tr.replace(0, np.nan)
         )
-
         dx = (
             (plus_di - minus_di).abs() /
             (plus_di + minus_di).replace(
@@ -1976,7 +1147,6 @@ class Indicators:
                 np.nan
             )
         ) * 100
-
         return dx.ewm(
             alpha=1 / period,
             adjust=False
@@ -1989,11 +1159,8 @@ class Indicators:
             df["low"] +
             df["close"]
         ) / 3
-
         volume = df["volume"]
-
         cumulative_volume = volume.cumsum()
-
         return (
             typical_price * volume
         ).cumsum() / cumulative_volume.replace(
@@ -2008,7 +1175,6 @@ class Indicators:
             .rolling(period)
             .mean()
         )
-
         return (
             df["volume"] /
             volume_ma.replace(0, np.nan)
@@ -2017,34 +1183,21 @@ class Indicators:
     @staticmethod
     def enrich(df):
         df = df.copy()
-
-        # ----------------------------------------------------
-        # Trend
-        # ----------------------------------------------------
-
         df["ema20"] = Indicators.ema(
             df["close"],
             20
         )
-
         df["ema50"] = Indicators.ema(
             df["close"],
             50
         )
-
         df["ema200"] = Indicators.ema(
             df["close"],
             200
         )
-
-        # ----------------------------------------------------
-        # Momentum
-        # ----------------------------------------------------
-
         df["rsi"] = Indicators.rsi(
             df["close"]
         )
-
         (
             df["macd"],
             df["macd_signal"],
@@ -2052,42 +1205,24 @@ class Indicators:
         ) = Indicators.macd(
             df["close"]
         )
-
         df["adx"] = Indicators.adx(df)
-
-        # ----------------------------------------------------
-        # Volatility
-        # ----------------------------------------------------
-
         df["atr"] = Indicators.atr(df)
-
-        # ----------------------------------------------------
-        # Volume
-        # ----------------------------------------------------
-
         df["volume_ma"] = (
             df["volume"]
             .rolling(20)
             .mean()
         )
-
         df["volume_ratio"] = (
             Indicators.volume_ratio(df)
         )
-
-        # ----------------------------------------------------
-        # VWAP
-        # ----------------------------------------------------
-
         df["vwap"] = Indicators.vwap(df)
-
         return df
+
+
 # ============================================================
 # MARKET DATA
 # ============================================================
-
 class Market:
-
     def __init__(self):
         self.exchange = ccxt.bitget({
             "enableRateLimit": True,
@@ -2095,20 +1230,14 @@ class Market:
                 "defaultType": "swap"
             }
         })
-
         try:
             self.exchange.load_markets()
             logging.info("Bitget markets loaded successfully.")
-
         except Exception as e:
             logging.error(
                 f"Failed to load Bitget markets: {e}"
             )
             raise
-
-    # ========================================================
-    # OHLCV DATA
-    # ========================================================
 
     def fetch(self, symbol, timeframe, limit=250):
         try:
@@ -2117,16 +1246,13 @@ class Market:
                     f"Symbol not found on Bitget: {symbol}"
                 )
                 return None
-
             candles = self.exchange.fetch_ohlcv(
                 symbol,
                 timeframe,
                 limit=limit
             )
-
             if not candles:
                 return None
-
             df = pd.DataFrame(
                 candles,
                 columns=[
@@ -2138,7 +1264,6 @@ class Market:
                     "volume"
                 ]
             )
-
             for col in [
                 "open",
                 "high",
@@ -2150,13 +1275,11 @@ class Market:
                     df[col],
                     errors="coerce"
                 )
-
             df["timestamp"] = pd.to_datetime(
                 df["timestamp"],
                 unit="ms",
                 utc=True
             )
-
             df = df.dropna(
                 subset=[
                     "open",
@@ -2166,97 +1289,36 @@ class Market:
                     "volume"
                 ]
             )
-
             df = df.sort_values(
                 "timestamp"
             ).reset_index(drop=True)
-
             return df
-
         except Exception as e:
             logging.error(
                 f"Market error {symbol} {timeframe}: {e}"
             )
             return None
 
-    # ========================================================
-    # CURRENT PRICE
-    # ========================================================
-
     def price(self, symbol):
         try:
             ticker = self.exchange.fetch_ticker(
                 symbol
             )
-
             last = ticker.get("last")
-
             if last is None:
                 return None
-
             return float(last)
-
         except Exception as e:
             logging.error(
                 f"Price error {symbol}: {e}"
             )
             return None
 
-    # ========================================================
-    # TICKER
-    # ========================================================
-
-    def ticker(self, symbol):
-        try:
-            return self.exchange.fetch_ticker(
-                symbol
-            )
-
-        except Exception as e:
-            logging.error(
-                f"Ticker error {symbol}: {e}"
-            )
-            return None
-
-    # ========================================================
-    # MARKET INFO
-    # ========================================================
-
-    def market_info(self, symbol):
-        try:
-            return self.exchange.market(
-                symbol
-            )
-
-        except Exception as e:
-            logging.error(
-                f"Market info error {symbol}: {e}"
-            )
-            return None
-
-    # ========================================================
-    # LAST CANDLE
-    # ========================================================
-
-    def last_candle(self, symbol, timeframe):
-        df = self.fetch(
-            symbol,
-            timeframe,
-            limit=5
-        )
-
-        if df is None or df.empty:
-            return None
-
-        return df.iloc[-1].to_dict()
-
 
 # ============================================================
 # MARKET STRUCTURE
 # ============================================================
-
 class Structure:
-
     @staticmethod
     def levels(df, window=7):
         if df is None or df.empty:
@@ -2264,7 +1326,6 @@ class Structure:
                 "resistance": None,
                 "support": None
             }
-
         if len(df) < (window * 2 + 1):
             return {
                 "resistance": float(
@@ -2274,10 +1335,8 @@ class Structure:
                     df["low"].tail(20).min()
                 )
             }
-
         highs = df["high"]
         lows = df["low"]
-
         resistance = highs[
             highs ==
             highs.rolling(
@@ -2285,7 +1344,6 @@ class Structure:
                 center=True
             ).max()
         ]
-
         support = lows[
             lows ==
             lows.rolling(
@@ -2293,21 +1351,18 @@ class Structure:
                 center=True
             ).min()
         ]
-
         resistance = (
             resistance
             .dropna()
             .tail(10)
             .tolist()
         )
-
         support = (
             support
             .dropna()
             .tail(10)
             .tolist()
         )
-
         return {
             "resistance": (
                 resistance[-1]
@@ -2316,7 +1371,6 @@ class Structure:
                     df["high"].tail(20).max()
                 )
             ),
-
             "support": (
                 support[-1]
                 if support
@@ -2325,26 +1379,20 @@ class Structure:
                 )
             )
         }
+
+
 # ============================================================
 # TECHNICAL SCORING
 # ============================================================
-
 class TechnicalEngine:
-
     @staticmethod
     def analyze(df10, df1h, df4h):
-
-        # ----------------------------------------------------
-        # Validate data
-        # ----------------------------------------------------
-
         if (
             df10 is None or
             df1h is None or
             df4h is None
         ):
             return None
-
         if (
             len(df10) < 220 or
             len(df1h) < 220 or
@@ -2352,175 +1400,97 @@ class TechnicalEngine:
         ):
             return None
 
-        # ----------------------------------------------------
-        # Enrich all timeframes
-        # ----------------------------------------------------
-
         a10 = Indicators.enrich(df10)
         a1 = Indicators.enrich(df1h)
         a4 = Indicators.enrich(df4h)
 
-        # Use the last CLOSED candle.
-        # The newest candle can still be forming.
         x = a10.iloc[-2]
         h1 = a1.iloc[-2]
         h4 = a4.iloc[-2]
 
-        # ----------------------------------------------------
-        # Market structure
-        # ----------------------------------------------------
-
         levels = Structure.levels(
             a10.iloc[:-1]
         )
-
         price = float(x["close"])
-
         resistance = float(
             levels["resistance"]
         )
-
         support = float(
             levels["support"]
         )
 
-        # ----------------------------------------------------
-        # Scores
-        # ----------------------------------------------------
-
         long_score = 0
         short_score = 0
 
-        # ====================================================
-        # 10M TREND
-        # ====================================================
-
         if x["ema20"] > x["ema50"]:
             long_score += 10
-
         elif x["ema20"] < x["ema50"]:
             short_score += 10
 
-        # ====================================================
-        # 1H TREND
-        # ====================================================
-
         if h1["close"] > h1["ema20"]:
             long_score += 12
-
         elif h1["close"] < h1["ema20"]:
             short_score += 12
 
         if h1["ema20"] > h1["ema50"]:
             long_score += 8
-
         elif h1["ema20"] < h1["ema50"]:
             short_score += 8
 
-        # ====================================================
-        # 4H TREND
-        # ====================================================
-
         if h4["close"] > h4["ema20"]:
             long_score += 10
-
         elif h4["close"] < h4["ema20"]:
             short_score += 10
 
         if h4["ema20"] > h4["ema50"]:
             long_score += 8
-
         elif h4["ema20"] < h4["ema50"]:
             short_score += 8
 
-        # ====================================================
-        # RSI
-        # ====================================================
-
         if 55 <= x["rsi"] <= 72:
             long_score += 10
-
         elif 28 <= x["rsi"] <= 45:
             short_score += 10
 
-        # ====================================================
-        # MACD
-        # ====================================================
-
         if x["macd"] > x["macd_signal"]:
             long_score += 8
-
         elif x["macd"] < x["macd_signal"]:
             short_score += 8
 
-        # ====================================================
-        # MACD HISTOGRAM
-        # ====================================================
-
         if x["macd_histogram"] > 0:
             long_score += 4
-
         elif x["macd_histogram"] < 0:
             short_score += 4
 
-        # ====================================================
-        # ADX / TREND STRENGTH
-        # ====================================================
-
         if x["adx"] >= 20:
-
             if x["ema20"] > x["ema50"]:
                 long_score += 8
-
             elif x["ema20"] < x["ema50"]:
                 short_score += 8
 
-        # ====================================================
-        # VOLUME
-        # ====================================================
-
         if x["volume_ratio"] >= 1.3:
-
             if x["close"] > x["open"]:
                 long_score += 8
-
             elif x["close"] < x["open"]:
                 short_score += 8
 
-        # ====================================================
-        # VWAP
-        # ====================================================
-
         if pd.notna(x["vwap"]):
-
             if price > x["vwap"]:
                 long_score += 5
-
             elif price < x["vwap"]:
                 short_score += 5
 
-        # ====================================================
-        # STRUCTURE
-        # ====================================================
-
         if price > resistance:
             long_score += 10
-
         elif price < support:
             short_score += 10
-
-        # ====================================================
-        # FINAL DIRECTION
-        # ====================================================
 
         if long_score > short_score:
             direction = "LONG"
             score = long_score
-
         elif short_score > long_score:
             direction = "SHORT"
             score = short_score
-
         else:
             direction = "NEUTRAL"
             score = max(
@@ -2528,38 +1498,27 @@ class TechnicalEngine:
                 short_score
             )
 
-        # ----------------------------------------------------
-        # Trend labels
-        # ----------------------------------------------------
-
         trend_10m = (
             "BULLISH"
             if x["close"] > x["ema20"]
             else "BEARISH"
         )
-
         trend_1h = (
             "BULLISH"
             if h1["close"] > h1["ema20"]
             else "BEARISH"
         )
-
         trend_4h = (
             "BULLISH"
             if h4["close"] > h4["ema20"]
             else "BEARISH"
         )
 
-        # ----------------------------------------------------
-        # Multi-timeframe alignment
-        # ----------------------------------------------------
-
         bullish_alignment = (
             trend_10m == "BULLISH" and
             trend_1h == "BULLISH" and
             trend_4h == "BULLISH"
         )
-
         bearish_alignment = (
             trend_10m == "BEARISH" and
             trend_1h == "BEARISH" and
@@ -2568,16 +1527,10 @@ class TechnicalEngine:
 
         if bullish_alignment:
             timeframe_alignment = "FULL_BULLISH"
-
         elif bearish_alignment:
             timeframe_alignment = "FULL_BEARISH"
-
         else:
             timeframe_alignment = "MIXED"
-
-        # ----------------------------------------------------
-        # Setup classification
-        # ----------------------------------------------------
 
         if (
             bullish_alignment and
@@ -2585,89 +1538,63 @@ class TechnicalEngine:
             x["volume_ratio"] >= 1.3
         ):
             setup = "TREND_CONTINUATION_LONG"
-
         elif (
             bearish_alignment and
             x["macd_histogram"] < 0 and
             x["volume_ratio"] >= 1.3
         ):
             setup = "TREND_CONTINUATION_SHORT"
-
         elif price > resistance:
             setup = "RESISTANCE_BREAKOUT"
-
         elif price < support:
             setup = "SUPPORT_BREAKDOWN"
-
         elif timeframe_alignment == "MIXED":
             setup = "MIXED_TIMEFRAME"
-
         else:
             setup = "STANDARD_SETUP"
 
-        # ----------------------------------------------------
-        # Return technical snapshot
-        # ----------------------------------------------------
-
         return {
             "direction": direction,
-
             "score": min(
                 float(score),
                 100
             ),
-
             "long_score": float(long_score),
-
             "short_score": float(short_score),
-
             "price": price,
-
             "rsi": float(x["rsi"]),
-
             "atr": float(x["atr"]),
-
             "adx": float(x["adx"]),
-
             "ema20": float(x["ema20"]),
-
             "ema50": float(x["ema50"]),
-
             "ema200": float(x["ema200"]),
-
             "macd": float(x["macd"]),
-
             "macd_signal": float(
                 x["macd_signal"]
             ),
-
             "macd_histogram": float(
                 x["macd_histogram"]
             ),
-
             "volume_ratio": float(
                 x["volume_ratio"]
             ),
-
             "vwap": float(x["vwap"])
             if pd.notna(x["vwap"])
             else None,
-
             "resistance": resistance,
-
             "support": support,
-
             "10m_trend": trend_10m,
-
             "1h_trend": trend_1h,
-
             "4h_trend": trend_4h,
-
             "timeframe_alignment":
-                timeframe_alignment,
-
+            timeframe_alignment,
             "setup": setup
         }
+
+
+# ============================================================
+# AI ANALYSIS
+# ============================================================
 class AIAnalysis(BaseModel):
     direction: str = Field(description="LONG, SHORT, or NEUTRAL")
     decision: str = Field(description="TAKE, CONSIDER, or IGNORE")
@@ -2680,39 +1607,18 @@ class AIAnalysis(BaseModel):
 
 class AIEngine:
     SYSTEM_PROMPT = """
-You are a conservative futures market analysis assistant.
-
-You DO NOT execute trades.
-You DO NOT calculate position size.
-You DO NOT choose leverage.
-You DO NOT override the risk engine.
-
-Your job is to review an already filtered technical setup.
-
-Possible directions:
-LONG, SHORT, NEUTRAL
-
-Possible decisions:
-TAKE, CONSIDER, IGNORE
-
-Rules:
-1. Never invent market data, prices, or indicators.
-2. Do not calculate position size.
-3. Do not choose leverage.
-4. Do not override risk controls.
-5. Consider 10m, 1h, and 4h alignment.
-6. Consider BTC context.
-7. Penalize conflicting higher-timeframe trends.
-8. Penalize weak volume.
-9. Penalize extreme RSI conditions.
-10. If evidence is mixed or uncertain, prefer CONSIDER or IGNORE.
-11. Be conservative.
-12. Return ONLY the requested JSON schema.
-"""
+    You are a conservative futures market analysis assistant.
+    You DO NOT execute trades.
+    You DO NOT calculate position size.
+    You DO NOT choose leverage.
+    You DO NOT override the risk engine.
+    Your job is to review an already filtered technical setup.
+    Possible directions: LONG, SHORT, NEUTRAL
+    Possible decisions: TAKE, CONSIDER, IGNORE
+    """
 
     def __init__(self):
         self.client = None
-
         if Config.GEMINI_API_KEY:
             try:
                 self.client = genai.Client(
@@ -2733,13 +1639,10 @@ Rules:
                 "risk_flags": ["AI_UNAVAILABLE"],
                 "reason": "Gemini AI is not available."
             }
-
         try:
             return self.gemini(snapshot)
-
         except Exception as e:
             logging.error(f"Gemini error: {e}")
-
             return {
                 "direction": "NEUTRAL",
                 "decision": "IGNORE",
@@ -2761,7 +1664,6 @@ Rules:
                 default=str
             )
         )
-
         response = self.client.models.generate_content(
             model=Config.GEMINI_MODEL,
             contents=prompt,
@@ -2770,10 +1672,13 @@ Rules:
                 response_schema=AIAnalysis
             )
         )
-
         result = AIAnalysis.model_validate_json(response.text)
-
         return result.model_dump()
+
+
+# ============================================================
+# RISK ENGINE
+# ============================================================
 class RiskEngine:
     @staticmethod
     def calculate(
@@ -2786,66 +1691,48 @@ class RiskEngine:
         support=None,
         resistance=None
     ):
-        # Basic validation
         if direction not in ("LONG", "SHORT"):
             return None
-
         if entry is None or entry <= 0:
             return None
-
         if atr is None or atr <= 0:
             return None
-
         if capital is None or capital <= 0:
             return None
-
         if risk_pct is None or risk_pct <= 0:
             return None
-
         if leverage is None or leverage <= 0:
             return None
 
-        # Enforce configured maximum leverage
         leverage = min(
             float(leverage),
             float(Config.MAX_LEVERAGE)
         )
-
-        # Maximum amount we are willing to lose
         risk_usd = float(capital) * float(risk_pct)
-
-        # ATR-based stop distance
         stop_distance = float(atr) * 2.0
 
         if direction == "LONG":
             stop = float(entry) - stop_distance
             tp1 = float(entry) + (stop_distance * 2.0)
             tp2 = float(entry) + (stop_distance * 3.0)
-
         else:
             stop = float(entry) + stop_distance
             tp1 = float(entry) - (stop_distance * 2.0)
             tp2 = float(entry) - (stop_distance * 3.0)
 
-        # Safety check
         if stop <= 0 or tp1 <= 0 or tp2 <= 0:
             return None
 
         risk_per_unit = abs(float(entry) - stop)
-
         if risk_per_unit <= 0:
             return None
 
-        # Position quantity based on maximum allowed loss
         quantity = risk_usd / risk_per_unit
-
         if quantity <= 0:
             return None
 
         notional = quantity * float(entry)
         margin = notional / leverage
-
-        # TP1 is 2R with the current stop model
         risk_reward = abs(tp1 - float(entry)) / risk_per_unit
 
         return {
@@ -2863,25 +1750,16 @@ class RiskEngine:
             "support": support,
             "resistance": resistance
         }
+
+
+# ============================================================
+# EXECUTION ENGINE
+# ============================================================
 class ExecutionEngine:
-    """
-    Bitget execution layer.
-
-    Current stage:
-    - Selects DEMO or LIVE credentials.
-    - Validates environment and trading parameters.
-    - Prepares order information.
-    - Does NOT submit live/demo orders yet.
-    """
-
     def __init__(self):
         self.environment = Config.TRADING_ENV
-
         if self.environment not in ("DEMO", "LIVE"):
-            raise ValueError(
-                "TRADING_ENV must be DEMO or LIVE"
-            )
-
+            raise ValueError("TRADING_ENV must be DEMO or LIVE")
         if self.environment == "DEMO":
             self.api_key = Config.BITGET_DEMO_API_KEY
             self.secret = Config.BITGET_DEMO_SECRET
@@ -2890,38 +1768,17 @@ class ExecutionEngine:
             self.api_key = Config.BITGET_LIVE_API_KEY
             self.secret = Config.BITGET_LIVE_SECRET
             self.password = Config.BITGET_LIVE_PASSWORD
-
         self.exchange = None
-
         self._initialize_exchange()
 
     def _initialize_exchange(self):
-        if not self.api_key:
-            logging.warning(
-                f"Bitget {self.environment} API key is not configured."
-            )
+        if not self.api_key or not self.secret or not self.password:
+            logging.warning(f"Bitget {self.environment} credentials incomplete.")
             return
-
-        if not self.secret:
-            logging.warning(
-                f"Bitget {self.environment} secret is not configured."
-            )
-            return
-
-        if not self.password:
-            logging.warning(
-                f"Bitget {self.environment} password is not configured."
-            )
-            return
-
         try:
-            options = {
-                "defaultType": "swap"
-            }
-
+            options = {"defaultType": "swap"}
             if self.environment == "DEMO":
                 options["demo"] = True
-
             self.exchange = ccxt.bitget({
                 "apiKey": self.api_key,
                 "secret": self.secret,
@@ -2929,19 +1786,11 @@ class ExecutionEngine:
                 "enableRateLimit": True,
                 "options": options
             })
-
             self.exchange.load_markets()
-
-            logging.info(
-                f"Bitget {self.environment} execution "
-                "environment initialized."
-            )
-
+            logging.info(f"Bitget {self.environment} execution initialized.")
         except Exception as e:
             self.exchange = None
-            logging.error(
-                f"Bitget initialization error: {e}"
-            )
+            logging.error(f"Bitget initialization error: {e}")
 
     def is_ready(self):
         return self.exchange is not None
@@ -2949,111 +1798,28 @@ class ExecutionEngine:
     def fetch_equity(self):
         if not self.is_ready():
             return None
-
         try:
             balance = self.exchange.fetch_balance()
-
             usdt = balance.get("USDT", {})
-
-            total = usdt.get("total")
-
+            total = usdt.get("total") or usdt.get("free")
             if total is None:
-                total = usdt.get("free")
-
-            if total is None:
-                logging.warning(
-                    "USDT equity could not be determined."
-                )
                 return None
-
-            equity = float(total)
-
-            if equity <= 0:
-                logging.warning(
-                    f"Invalid USDT equity: {equity}"
-                )
-                return None
-
-            return equity
-
+            return float(total)
         except Exception as e:
-            logging.error(
-                f"Equity fetch error: {e}"
-            )
-            return None
-
-    def market_info(self, symbol):
-        if not self.is_ready():
-            return None
-
-        try:
-            market = self.exchange.market(symbol)
-
-            return {
-                "symbol": symbol,
-                "contract": market.get("contract", False),
-                "contract_size": market.get(
-                    "contractSize"
-                ),
-                "amount_min": market.get(
-                    "limits", {}
-                ).get("amount", {}).get("min"),
-                "amount_max": market.get(
-                    "limits", {}
-                ).get("amount", {}).get("max"),
-                "price_min": market.get(
-                    "limits", {}
-                ).get("price", {}).get("min"),
-                "precision_amount": market.get(
-                    "precision", {}
-                ).get("amount"),
-                "precision_price": market.get(
-                    "precision", {}
-                ).get("price")
-            }
-
-        except Exception as e:
-            logging.error(
-                f"Market info error {symbol}: {e}"
-            )
+            logging.error(f"Equity fetch error: {e}")
             return None
 
     def normalize_quantity(self, symbol, quantity):
         if not self.is_ready():
             return None
-
         try:
             quantity = float(quantity)
-
             if quantity <= 0:
                 return None
-
-            formatted = self.exchange.amount_to_precision(
-                symbol,
-                quantity
-            )
-
-            normalized = float(formatted)
-
-            market = self.exchange.market(symbol)
-
-            minimum = (
-                market.get("limits", {})
-                .get("amount", {})
-                .get("min")
-            )
-
-            if minimum is not None:
-                if normalized < float(minimum):
-                    return None
-
-            return normalized
-
+            formatted = self.exchange.amount_to_precision(symbol, quantity)
+            return float(formatted)
         except Exception as e:
-            logging.error(
-                f"Quantity normalization error "
-                f"{symbol}: {e}"
-            )
+            logging.error(f"Quantity normalization error: {e}")
             return None
 
     def validate_order(
@@ -3069,53 +1835,13 @@ class ExecutionEngine:
     ):
         if direction not in ("LONG", "SHORT"):
             return False, "Invalid direction."
-
         if not self.is_ready():
-            return False, (
-                f"Bitget {self.environment} "
-                "execution is not ready."
-            )
-
-        if leverage <= 0:
+            return False, "Execution engine not ready."
+        if leverage <= 0 or leverage > Config.MAX_LEVERAGE:
             return False, "Invalid leverage."
+        return True, "Validation passed."
 
-        if leverage > Config.MAX_LEVERAGE:
-            return False, "Leverage exceeds configured maximum."
-
-        if entry <= 0:
-            return False, "Invalid entry price."
-
-        if stop <= 0 or tp1 <= 0 or tp2 <= 0:
-            return False, "Invalid SL/TP price."
-
-        if direction == "LONG":
-            if stop >= entry:
-                return False, "LONG stop must be below entry."
-
-            if tp1 <= entry or tp2 <= entry:
-                return False, "LONG TP must be above entry."
-
-        if direction == "SHORT":
-            if stop <= entry:
-                return False, "SHORT stop must be above entry."
-
-            if tp1 >= entry or tp2 >= entry:
-                return False, "SHORT TP must be below entry."
-
-        normalized_quantity = self.normalize_quantity(
-            symbol,
-            quantity
-        )
-
-        if normalized_quantity is None:
-            return False, (
-                "Quantity is below exchange minimum "
-                "or could not be normalized."
-            )
-
-        return True, "Order validation passed."
-
-        def prepare_order(
+    def prepare_order(
         self,
         symbol,
         direction,
@@ -3127,181 +1853,80 @@ class ExecutionEngine:
         tp2
     ):
         valid, message = self.validate_order(
-            symbol=symbol,
-            direction=direction,
-            quantity=quantity,
-            leverage=leverage,
-            entry=entry,
-            stop=stop,
-            tp1=tp1,
-            tp2=tp2
+            symbol, direction, quantity, leverage, entry, stop, tp1, tp2
         )
-
         if not valid:
-            return {
-                "ready": False,
-                "environment": self.environment,
-                "error": message
-            }
-
-        normalized_quantity = self.normalize_quantity(
-            symbol,
-            quantity
-        )
-
-        side = (
-            "buy"
-            if direction == "LONG"
-            else "sell"
-        )
-
-        close_side = (
-            "sell"
-            if direction == "LONG"
-            else "buy"
-        )
-
+            return {"ready": False, "error": message}
+        norm_qty = self.normalize_quantity(symbol, quantity)
         return {
             "ready": True,
             "environment": self.environment,
             "symbol": symbol,
             "direction": direction,
-            "side": side,
-            "close_side": close_side,
-            "quantity": normalized_quantity,
+            "quantity": norm_qty,
             "leverage": float(leverage),
             "entry": float(entry),
             "stop": float(stop),
             "tp1": float(tp1),
-            "tp2": float(tp2),
-            "margin_mode": "isolated",
-            "execution_enabled": False
+            "tp2": float(tp2)
         }
 
     def execute(self, order_plan, mode="MANUAL"):
-        """
-        Execution is intentionally disabled in this stage.
-        No Bitget order is submitted.
-        """
-
         if mode != "AUTO":
-            return {
-                "success": False,
-                "executed": False,
-                "environment": self.environment,
-                "error": (
-                    "Automatic execution is blocked "
-                    "because the bot is not in AUTO mode."
-                )
-            }
-
-        if not order_plan:
-            return {
-                "success": False,
-                "executed": False,
-                "environment": self.environment,
-                "error": "Empty order plan."
-            }
-
-        return {
-            "success": False,
-            "executed": False,
-            "environment": self.environment,
-            "error": (
-                "Order execution is disabled during "
-                "the initial validation stage."
-            )
-        }
+            return {"success": False, "error": "Not in AUTO mode."}
+        return {"success": False, "error": "Execution disabled in initial stage."}
 
 
+# ============================================================
+# TRADING BOT MAIN CLASS
+# ============================================================
 class TradingBot:
     def __init__(self):
+        self.config = Config()
         self.ai = AIEngine()
         self.execution = ExecutionEngine()
         self.db = Database(
-            self.config.DB_FILE,
-            initial_capital=self.config.CAPITAL
+            Config.DB_FILE,
+            initial_capital=Config.CAPITAL
         )
         self.telegram = Telegram()
         self.market = Market()
-
-        # AUTO is the default mode.
-        # AUTO = automatic execution enabled.
-        # MANUAL = signals only, no automatic execution.
         self.mode = "AUTO"
-
         self.last_signal = {}
         self.running = True
 
     def set_mode(self, mode):
         mode = str(mode).upper()
-
         if mode not in ("AUTO", "MANUAL"):
             return False
-
         self.mode = mode
         logging.info(f"Trading mode changed to {self.mode}")
-
         self.telegram.send_mode_panel(self.mode)
-
         return True
-
 
     def get_exchange_equity(self):
         equity = self.execution.fetch_equity()
-
         if equity is None:
-            logging.warning(
-                "Exchange equity is unavailable."
-            )
             return None
-
-        logging.info(
-            f"Bitget {self.execution.environment} "
-            f"USDT equity: ${equity:.2f}"
-        )
-
         return equity
+
     def btc_context(self):
         try:
-            df1 = self.market.fetch(
-                self.config.BTC_SYMBOL,
-                "1h",
-                100
-            )
-
-            df4 = self.market.fetch(
-                self.config.BTC_SYMBOL,
-                "4h",
-                100
-            )
-
+            df1 = self.market.fetch(Config.BTC_SYMBOL, "1h", 100)
+            df4 = self.market.fetch(Config.BTC_SYMBOL, "4h", 100)
             if df1 is None or df4 is None:
                 return {}
-
             a1 = Indicators.enrich(df1)
             a4 = Indicators.enrich(df4)
-
             if len(a1) < 2 or len(a4) < 2:
                 return {}
-
             c1 = a1.iloc[-2]
             c4 = a4.iloc[-2]
-
             return {
-                "btc_1h": (
-                    "BULLISH"
-                    if c1["close"] > c1["ema20"]
-                    else "BEARISH"
-                ),
-                "btc_4h": (
-                    "BULLISH"
-                    if c4["close"] > c4["ema20"]
-                    else "BEARISH"
-                ),
+                "btc_1h": "BULLISH" if c1["close"] > c1["ema20"] else "BEARISH",
+                "btc_4h": "BULLISH" if c4["close"] > c4["ema20"] else "BEARISH",
                 "btc_rsi_1h": float(c1["rsi"])
             }
-
         except Exception as e:
             logging.error(f"BTC context error: {e}")
             return {}
@@ -3310,200 +1935,63 @@ class TradingBot:
         return {
             "symbol": symbol,
             "market": "BITGET_USDT_M_PERPETUAL",
-            "margin_mode": "ISOLATED",
             "direction_candidate": tech["direction"],
             "technical_score": tech["score"],
             "price": tech["price"],
-
             "10m": {
                 "rsi": tech["rsi"],
                 "atr": tech["atr"],
                 "adx": tech["adx"],
-                "ema20": tech["ema20"],
-                "ema50": tech["ema50"],
-                "ema200": tech["ema200"],
-                "macd": tech["macd"],
-                "macd_signal": tech["macd_signal"],
-                "macd_histogram": tech["macd_histogram"],
-                "volume_ratio": tech["volume_ratio"],
-                "vwap": tech["vwap"]
+                "ema20": tech["ema20"]
             },
-
-            "1h": {
-                "trend": tech["1h_trend"]
-            },
-
-            "4h": {
-                "trend": tech["4h_trend"]
-            },
-
+            "1h": {"trend": tech["1h_trend"]},
+            "4h": {"trend": tech["4h_trend"]},
             "structure": {
                 "support": tech["support"],
                 "resistance": tech["resistance"]
             },
-
-            "timeframe_alignment": tech["timeframe_alignment"],
             "setup": tech["setup"],
             "btc_context": btc
         }
 
-    def btc_warning(self, direction, btc):
-        if not btc:
-            return []
-
-        flags = []
-
-        if (
-            direction == "LONG"
-            and btc.get("btc_1h") == "BEARISH"
-        ):
-            flags.append("BTC_1H_AGAINST_LONG")
-
-        if (
-            direction == "SHORT"
-            and btc.get("btc_1h") == "BULLISH"
-        ):
-            flags.append("BTC_1H_AGAINST_SHORT")
-
-        if (
-            direction == "LONG"
-            and btc.get("btc_4h") == "BEARISH"
-        ):
-            flags.append("BTC_4H_AGAINST_LONG")
-
-        if (
-            direction == "SHORT"
-            and btc.get("btc_4h") == "BULLISH"
-        ):
-            flags.append("BTC_4H_AGAINST_SHORT")
-
-        return flags
-
     def evaluate(self, symbol):
-        df10 = self.market.fetch(
-            symbol,
-            self.config.TF_MAIN
-        )
-
-        df1 = self.market.fetch(
-            symbol,
-            self.config.TF_1H
-        )
-
-        df4 = self.market.fetch(
-            symbol,
-            self.config.TF_4H
-        )
-
-        if (
-            df10 is None
-            or df1 is None
-            or df4 is None
-        ):
+        df10 = self.market.fetch(symbol, Config.TF_MAIN)
+        df1 = self.market.fetch(symbol, Config.TF_1H)
+        df4 = self.market.fetch(symbol, Config.TF_4H)
+        if df10 is None or df1 is None or df4 is None:
             return
 
-        tech = TechnicalEngine.analyze(
-            df10,
-            df1,
-            df4
-        )
-
-        if not tech:
-            return
-
-        if tech["direction"] == "NEUTRAL":
-            return
-
-        if tech["score"] < self.config.MIN_TECH_SCORE:
+        tech = TechnicalEngine.analyze(df10, df1, df4)
+        if not tech or tech["direction"] == "NEUTRAL" or tech["score"] < Config.MIN_TECH_SCORE:
             return
 
         btc = self.btc_context()
-
-        snapshot = self.snapshot(
-            symbol,
-            tech,
-            btc
-        )
-
-        ai = self.ai.analyze(snapshot)
-
-        if not ai:
+        snap = self.snapshot(symbol, tech, btc)
+        ai = self.ai.analyze(snap)
+        if not ai or ai["direction"] != tech["direction"] or ai["confidence"] < Config.MIN_AI_CONFIDENCE:
             return
 
-        if ai["direction"] != tech["direction"]:
+        if self.mode == "AUTO" and ai["decision"] != "TAKE":
+            return
+        if self.mode == "MANUAL" and ai["decision"] == "IGNORE":
             return
 
-        if ai["confidence"] < self.config.MIN_AI_CONFIDENCE:
-            return
-
-        # In AUTO mode, only TAKE decisions can proceed
-        # toward automatic execution.
-        if (
-            self.mode == "AUTO"
-            and ai["decision"] != "TAKE"
-        ):
-            return
-
-        # In MANUAL mode, IGNORE is still rejected.
-        if (
-            self.mode == "MANUAL"
-            and ai["decision"] == "IGNORE"
-        ):
-            return
-
-        flags = self.btc_warning(
-            tech["direction"],
-            btc
-        )
-
-        leverage = min(
-            self.config.DEFAULT_LEVERAGE,
-            self.config.MAX_LEVERAGE
-        )
+        leverage = min(Config.DEFAULT_LEVERAGE, Config.MAX_LEVERAGE)
+        equity = self.get_exchange_equity() or Config.CAPITAL
 
         risk = RiskEngine.calculate(
             direction=tech["direction"],
             entry=tech["price"],
             atr=tech["atr"],
-            capital=(
-    self.get_exchange_equity()
-    or self.config.CAPITAL
-),
-            risk_pct=self.config.RISK_PER_TRADE,
+            capital=equity,
+            risk_pct=Config.RISK_PER_TRADE,
             leverage=leverage,
             support=tech["support"],
             resistance=tech["resistance"]
         )
-
         if not risk:
             return
-        # ====================================================
-        # RISK GUARDS
-        # ====================================================
 
-        open_trades = self.db.get_open_trades()
-
-        if len(open_trades) >= self.config.MAX_OPEN_PLANS:
-            logging.warning(
-                f"Max open trades reached: "
-                f"{len(open_trades)}/"
-                f"{self.config.MAX_OPEN_PLANS}"
-            )
-            return
-
-        daily = self.db.get_daily_pnl()
-
-        daily_loss_limit = (
-            self.config.CAPITAL
-            * self.config.MAX_DAILY_LOSS
-        )
-
-        if daily["pnl"] <= -daily_loss_limit:
-            logging.warning(
-                f"Daily loss limit reached: "
-                f"${daily['pnl']:.2f}"
-            )
-            return
         order_plan = self.execution.prepare_order(
             symbol=symbol,
             direction=tech["direction"],
@@ -3514,33 +2002,14 @@ class TradingBot:
             tp1=risk["tp1"],
             tp2=risk["tp2"]
         )
-
         if not order_plan.get("ready"):
-            logging.warning(
-                f"Execution validation failed for "
-                f"{symbol}: "
-                f"{order_plan.get('error')}"
-            )
             return
-        key = (
-            symbol,
-            tech["direction"]
-        )
 
+        key = (symbol, tech["direction"])
         now = time.time()
-
-        if (
-            key in self.last_signal
-            and now - self.last_signal[key] < 30 * 60
-        ):
+        if key in self.last_signal and now - self.last_signal[key] < 30 * 60:
             return
-
         self.last_signal[key] = now
-
-        all_flags = (
-            flags
-            + ai.get("risk_flags", [])
-        )
 
         signal = {
             "symbol": symbol,
@@ -3556,21 +2025,15 @@ class TradingBot:
             "tp1": risk["tp1"],
             "tp2": risk["tp2"],
             "risk_reward": risk["risk_reward"],
-"ai_reason": ai["reason"],
-"execution_environment": order_plan["environment"],
-"execution_ready": order_plan["ready"],
-"execution_quantity": order_plan["quantity"],
-"risk_flags": all_flags
+            "ai_reason": ai["reason"],
+            "execution_environment": order_plan.get("environment", "DEMO"),
+            "execution_ready": order_plan["ready"],
+            "execution_quantity": order_plan["quantity"],
+            "risk_flags": ai.get("risk_flags", [])
         }
+        self.db.save_signal(signal)
 
-        signal_id = self.db.save_signal(signal)
-
-        emoji = (
-            "🟢"
-            if tech["direction"] == "LONG"
-            else "🔴"
-        )
-
+        emoji = "🟢" if tech["direction"] == "LONG" else "🔴"
         message = (
             f"{emoji} FUTURES SETUP\n"
             f"{symbol}\n\n"
@@ -3584,274 +2047,93 @@ class TradingBot:
             f"Notional: ${risk['notional']:.2f}\n"
             f"Margin @ {leverage}x: ${risk['margin']:.2f}\n"
             f"R:R: 1:{risk['risk_reward']:.2f}\n\n"
-            f"Technical Score: "
-            f"{tech['score']:.0f}/100\n"
-            f"AI Confidence: "
-            f"{ai['confidence']:.0f}/100\n\n"
+            f"Technical Score: {tech['score']:.0f}/100\n"
+            f"AI Confidence: {ai['confidence']:.0f}/100\n\n"
             f"Setup: {ai['setup']}\n"
-            f"Regime: {ai['regime']}\n"
-            f"BTC 1H: "
-            f"{btc.get('btc_1h', 'N/A')}\n"
-            f"BTC 4H: "
-            f"{btc.get('btc_4h', 'N/A')}\n\n"
             f"AI: {ai['reason']}"
         )
-
-        if all_flags:
-            message += (
-                "\n\n⚠️ Risk Flags:\n"
-                + "\n".join(
-                    f"• {x}"
-                    for x in all_flags
-                )
-            )
-
-        if self.mode == "AUTO":
-    execution_result = self.execution.execute(
-        order_plan,
-        mode=self.mode
-    )
-
-    message += (
-        "\n\n🤖 AUTO MODE\n"
-        "Signal passed technical, AI and risk filters.\n"
-        f"Execution: {execution_result.get('error', 'N/A')}"
-    )
-        else:
-            message += (
-                "\n\n🖐 MANUAL MODE\n"
-                "No automatic order will be sent."
-            )
-
-        keyboard = [
-            [
-                {
-                    "text": "🟢 AUTO",
-                    "callback_data": "mode_auto"
-                },
-                {
-                    "text": "🔴 MANUAL",
-                    "callback_data": "mode_manual"
-                }
-            ]
-        ]
-
-        self.telegram.send(
-            message,
-            keyboard
-        )
-
-        logging.info(
-            f"SIGNAL {symbol} "
-            f"{tech['direction']} "
-            f"score={tech['score']} "
-            f"mode={self.mode}"
-        )
-
-        # IMPORTANT:
-        # The actual Bitget order execution will be added
-        # through a separate ExecutionEngine.
-        #
-        # AUTO mode reaches this point only after all
-        # technical, AI and risk filters pass.
+        self.telegram.send(message)
 
     def process_updates(self):
         updates = self.telegram.poll()
-
         for update in updates:
             try:
                 if "callback_query" in update:
                     callback = update["callback_query"]
                     data = callback.get("data", "")
-
-                    self.telegram.answer_callback(
-                        callback.get("id", "")
-                    )
-
+                    self.telegram.answer_callback(callback.get("id", ""))
                     if data == "mode_auto":
                         self.set_mode("AUTO")
-
                     elif data == "mode_manual":
                         self.set_mode("MANUAL")
-
                     continue
-
                 if "message" not in update:
                     continue
-
-                text = (
-                    update["message"]
-                    .get("text", "")
-                    .strip()
-                )
-
+                text = update["message"].get("text", "").strip()
                 if not text:
                     continue
-
                 if text == "/auto":
                     self.set_mode("AUTO")
-
                 elif text == "/manual":
                     self.set_mode("MANUAL")
-
                 elif text == "/mode":
-                    self.telegram.send_mode_panel(
-                        self.mode
-                    )
-
+                    self.telegram.send_mode_panel(self.mode)
                 elif text == "/status":
                     trades = self.db.get_open_trades()
-
                     msg = (
-                        "🤖 BOT STATUS\n\n"
+                        f"🤖 BOT STATUS\n\n"
                         f"Mode: {self.mode}\n"
-                        "Market: Bitget USDT-M\n"
-                        "Margin: Isolated\n"
-                        f"Symbols: "
-                        f"{len(self.config.SYMBOLS)}\n"
-                        f"Open journal trades: "
-                        f"{len(trades)}"
+                        f"Market: Bitget USDT-M\n"
+                        f"Open trades: {len(trades)}"
                     )
-
                     self.telegram.send(msg)
-
                 elif text == "/equity":
                     equity = self.get_exchange_equity()
-
                     if equity is None:
-                        self.telegram.send(
-                            "⚠️ Unable to read "
-                            "Bitget USDT equity."
-                        )
+                        self.telegram.send("⚠️ Unable to read Bitget USDT equity.")
                     else:
-                        self.telegram.send(
-                            "💰 EXCHANGE EQUITY\n\n"
-                            f"Environment: "
-                            f"{self.execution.environment}\n"
-                            f"USDT Equity: "
-                            f"${equity:.2f}"
-                        )
+                        self.telegram.send(f"💰 USDT Equity: ${equity:.2f}")
                 elif text == "/stats":
                     stats = self.db.stats()
-
                     self.telegram.send(
-                        "📊 BOT STATISTICS\n\n"
+                        f"📊 BOT STATISTICS\n\n"
                         f"Trades: {stats['total']}\n"
                         f"Wins: {stats['wins']}\n"
                         f"Losses: {stats['losses']}\n"
-                        f"Win Rate: "
-                        f"{stats['win_rate']:.2f}%\n"
-                        f"Total PnL: "
-                        f"${stats['pnl']:.2f}\n"
-                        f"Average R: "
-                        f"{stats['avg_r']:.3f}\n"
-                        f"Profit Factor: "
-                        f"{stats['profit_factor']:.2f}"
+                        f"Win Rate: {stats['win_rate']:.2f}%\n"
+                        f"Total PnL: ${stats['pnl']:.2f}"
                     )
-
-                elif text == "/open":
-                    self.telegram.send(
-                        "Manual trade registration will be "
-                        "handled after ExecutionEngine is added."
-                    )
-
-                elif text.startswith("/open "):
-                    self.telegram.send(
-                        "⚠️ Manual order registration is "
-                        "temporarily disabled while the "
-                        "new execution layer is being installed."
-                    )
-
-                elif text.startswith("/close "):
-                    parts = text.split()
-
-                    if len(parts) != 3:
-                        self.telegram.send(
-                            "/close TRADE_ID EXIT_PRICE"
-                        )
-                        continue
-
-                    try:
-                        trade_id = int(parts[1])
-                        exit_price = float(parts[2])
-
-                        result = self.db.close_trade(
-                            trade_id,
-                            exit_price
-                        )
-
-                        if not result:
-                            self.telegram.send(
-                                "❌ Trade not found."
-                            )
-                            continue
-
-                        self.telegram.send(
-                            "🏁 TRADE CLOSED\n"
-                            f"Result: {result['result']}\n"
-                            f"PnL: ${result['pnl']:.2f}\n"
-                            f"R: {result['r']:.2f}"
-                        )
-
-                    except Exception as e:
-                        logging.error(
-                            f"Close command error: {e}"
-                        )
-                        self.telegram.send(
-                            "❌ Invalid close command."
-                        )
-
             except Exception as e:
-                logging.error(
-                    f"Update processing error: {e}"
-                )
+                logging.error(f"Update processing error: {e}")
 
     def run(self):
         self.telegram.send(
             "🤖 AI Futures Trading Bot Started\n\n"
             "Market: Bitget USDT-M Perpetual\n"
             "Margin: Isolated\n"
-            "Modes: LONG + SHORT\n"
-            "Default Mode: AUTO\n"
             "AI: Gemini\n"
-            "Risk Engine: Enabled\n\n"
-            "⚠️ Execution layer is being initialized."
+            "Risk Engine: Enabled"
         )
-
-        self.telegram.send_mode_panel(
-            self.mode
-        )
+        self.telegram.send_mode_panel(self.mode)
 
         while self.running:
             try:
                 self.process_updates()
-
-                for symbol in self.config.SYMBOLS:
+                for symbol in Config.SYMBOLS:
                     try:
                         self.evaluate(symbol)
                     except Exception as e:
-                        logging.error(
-                            f"Evaluation error "
-                            f"{symbol}: {e}"
-                        )
-
+                        logging.error(f"Evaluation error {symbol}: {e}")
                     time.sleep(2)
-
-                time.sleep(
-                    self.config.SCAN_SECONDS
-                )
-
+                time.sleep(Config.SCAN_SECONDS)
             except KeyboardInterrupt:
                 self.running = False
                 break
-
             except Exception as e:
-                logging.error(
-                    f"Main loop error: {e}"
-                )
+                logging.error(f"Main loop error: {e}")
                 time.sleep(10)
-
 
 if __name__ == "__main__":
     bot = TradingBot()
     bot.run()
+
