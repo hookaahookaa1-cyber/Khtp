@@ -3185,7 +3185,7 @@ class ExecutionEngine:
             "tp2": float(tp2),
             "margin_mode": "isolated",
             "execution_enabled": False
-            }
+        }
     def execute(self, order_plan, mode="MANUAL"):
         if mode != "AUTO":
             return {
