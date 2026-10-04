@@ -3115,7 +3115,7 @@ class ExecutionEngine:
 
         return True, "Order validation passed."
 
-        def prepare_order(
+    def prepare_order(
         self,
         symbol,
         direction,
@@ -3149,6 +3149,15 @@ class ExecutionEngine:
             quantity
         )
 
+        if normalized_quantity is None:
+            return {
+                "ready": False,
+                "environment": self.environment,
+                "error": (
+                    "Quantity normalization failed."
+                )
+            }
+
         side = (
             "buy"
             if direction == "LONG"
@@ -3176,8 +3185,7 @@ class ExecutionEngine:
             "tp2": float(tp2),
             "margin_mode": "isolated",
             "execution_enabled": False
-        }
-
+            }
     def execute(self, order_plan, mode="MANUAL"):
         if mode != "AUTO":
             return {
