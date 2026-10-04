@@ -3178,41 +3178,35 @@ class ExecutionEngine:
             "execution_enabled": False
         }
 
-    def execute(self, order_plan, mode="MANUAL"):
-    def execute(self, order_plan, mode="MANUAL"):
-    """
-    Execution is intentionally disabled in this stage.
-    No Bitget order is submitted.
-    """
+        def execute(self, order_plan, mode="MANUAL"):
+        if mode != "AUTO":
+            return {
+                "success": False,
+                "executed": False,
+                "environment": self.environment,
+                "error": (
+                    "Automatic execution is blocked "
+                    "because the bot is not in AUTO mode."
+                )
+            }
 
-    if mode != "AUTO":
+        if not order_plan:
+            return {
+                "success": False,
+                "executed": False,
+                "environment": self.environment,
+                "error": "Empty order plan."
+            }
+
         return {
             "success": False,
             "executed": False,
             "environment": self.environment,
             "error": (
-                "Automatic execution is blocked "
-                "because the bot is not in AUTO mode."
+                "Order execution is disabled during "
+                "the initial validation stage."
             )
         }
-
-    if not order_plan:
-        return {
-            "success": False,
-            "executed": False,
-            "environment": self.environment,
-            "error": "Empty order plan."
-        }
-
-    return {
-        "success": False,
-        "executed": False,
-        "environment": self.environment,
-        "error": (
-            "Order execution is disabled during "
-            "the initial validation stage."
-        )
-    }
 
 
 class TradingBot:
