@@ -3179,10 +3179,10 @@ class ExecutionEngine:
         }
 
     def execute(self, order_plan, mode="MANUAL"):
-        
+        """
         Execution is intentionally disabled in this stage.
         No Bitget order is submitted.
-        
+        """
 
         if mode != "AUTO":
             return {
@@ -3233,7 +3233,6 @@ class TradingBot:
         self.last_signal = {}
         self.running = True
 
-
     def set_mode(self, mode):
         mode = str(mode).upper()
 
@@ -3246,6 +3245,7 @@ class TradingBot:
         self.telegram.send_mode_panel(self.mode)
 
         return True
+
 
     def get_exchange_equity(self):
         equity = self.execution.fetch_equity()
