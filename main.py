@@ -50,10 +50,10 @@ BITGET_DEMO_PASSWORD = os.getenv("BITGET_DEMO_PASSWORD", "")
     # -------------------------
     # Market
     # -------------------------
-    SYMBOLS = [
-        "FET/USDT:USDT",
-        "NEAR/USDT:USDT",
-        "RENDER/USDT:USDT", 
+SYMBOLS = [
+"FET/USDT:USDT",
+"NEAR/USDT:USDT",
+"RENDER/USDT:USDT", 
     ]
     BTC_SYMBOL = "BTC/USDT:USDT"
     TF_MAIN = "10m"
