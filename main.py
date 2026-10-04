@@ -3115,7 +3115,7 @@ class ExecutionEngine:
 
         return True, "Order validation passed."
 
-    def prepare_order(
+        def prepare_order(
         self,
         symbol,
         direction,
@@ -3208,14 +3208,19 @@ class ExecutionEngine:
             )
         }
 
+
 class TradingBot:
+
     def __init__(self):
+        self.config = Config()
         self.ai = AIEngine()
         self.execution = ExecutionEngine()
+
         self.db = Database(
             self.config.DB_FILE,
             initial_capital=self.config.CAPITAL
         )
+
         self.telegram = Telegram()
         self.market = Market()
 
@@ -3234,12 +3239,16 @@ class TradingBot:
             return False
 
         self.mode = mode
-        logging.info(f"Trading mode changed to {self.mode}")
 
-        self.telegram.send_mode_panel(self.mode)
+        logging.info(
+            f"Trading mode changed to {self.mode}"
+        )
+
+        self.telegram.send_mode_panel(
+            self.mode
+        )
 
         return True
-
 
     def get_exchange_equity(self):
         equity = self.execution.fetch_equity()
@@ -3256,6 +3265,7 @@ class TradingBot:
         )
 
         return equity
+
     def btc_context(self):
         try:
             df1 = self.market.fetch(
@@ -3297,7 +3307,9 @@ class TradingBot:
             }
 
         except Exception as e:
-            logging.error(f"BTC context error: {e}")
+            logging.error(
+                f"BTC context error: {e}"
+            )
             return {}
 
     def snapshot(self, symbol, tech, btc):
@@ -3455,14 +3467,19 @@ class TradingBot:
             self.config.MAX_LEVERAGE
         )
 
+        exchange_equity = self.get_exchange_equity()
+
+        capital = (
+            exchange_equity
+            if exchange_equity is not None
+            else self.config.CAPITAL
+        )
+
         risk = RiskEngine.calculate(
             direction=tech["direction"],
             entry=tech["price"],
             atr=tech["atr"],
-            capital=(
-    self.get_exchange_equity()
-    or self.config.CAPITAL
-),
+            capital=capital,
             risk_pct=self.config.RISK_PER_TRADE,
             leverage=leverage,
             support=tech["support"],
@@ -3471,6 +3488,7 @@ class TradingBot:
 
         if not risk:
             return
+
         # ====================================================
         # RISK GUARDS
         # ====================================================
@@ -3498,6 +3516,7 @@ class TradingBot:
                 f"${daily['pnl']:.2f}"
             )
             return
+
         order_plan = self.execution.prepare_order(
             symbol=symbol,
             direction=tech["direction"],
@@ -3516,6 +3535,7 @@ class TradingBot:
                 f"{order_plan.get('error')}"
             )
             return
+
         key = (
             symbol,
             tech["direction"]
@@ -3550,11 +3570,11 @@ class TradingBot:
             "tp1": risk["tp1"],
             "tp2": risk["tp2"],
             "risk_reward": risk["risk_reward"],
-"ai_reason": ai["reason"],
-"execution_environment": order_plan["environment"],
-"execution_ready": order_plan["ready"],
-"execution_quantity": order_plan["quantity"],
-"risk_flags": all_flags
+            "ai_reason": ai["reason"],
+            "execution_environment": order_plan["environment"],
+            "execution_ready": order_plan["ready"],
+            "execution_quantity": order_plan["quantity"],
+            "risk_flags": all_flags
         }
 
         signal_id = self.db.save_signal(signal)
@@ -3601,16 +3621,18 @@ class TradingBot:
             )
 
         if self.mode == "AUTO":
-    execution_result = self.execution.execute(
-        order_plan,
-        mode=self.mode
-    )
+            execution_result = self.execution.execute(
+                order_plan,
+                mode=self.mode
+            )
 
-    message += (
-        "\n\n🤖 AUTO MODE\n"
-        "Signal passed technical, AI and risk filters.\n"
-        f"Execution: {execution_result.get('error', 'N/A')}"
-    )
+            message += (
+                "\n\n🤖 AUTO MODE\n"
+                "Signal passed technical, AI and risk filters.\n"
+                f"Execution: "
+                f"{execution_result.get('error', 'N/A')}"
+            )
+
         else:
             message += (
                 "\n\n🖐 MANUAL MODE\n"
@@ -3725,6 +3747,7 @@ class TradingBot:
                             f"USDT Equity: "
                             f"${equity:.2f}"
                         )
+
                 elif text == "/stats":
                     stats = self.db.stats()
 
