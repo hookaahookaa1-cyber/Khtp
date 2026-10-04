@@ -67,16 +67,16 @@ class Config:
     # -------------------------
     # Risk
     # -------------------------
-    CAPITAL = float(os.getenv("CAPITAL", "1000"))
-    RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.01"))
-    MAX_DAILY_LOSS = float(os.getenv("MAX_DAILY_LOSS", "0.03"))
-    MAX_OPEN_PLANS = int(os.getenv("MAX_OPEN_PLANS", "3"))
-    DEFAULT_LEVERAGE = int(os.getenv("DEFAULT_LEVERAGE", "10"))
-    MAX_LEVERAGE = int(os.getenv("MAX_LEVERAGE", "20"))
-    MIN_TECH_SCORE = float(os.getenv("MIN_TECH_SCORE", "65"))
-    MIN_AI_CONFIDENCE = float(os.getenv("MIN_AI_CONFIDENCE", "65"))
-    SCAN_SECONDS = int(os.getenv("SCAN_SECONDS", "60"))
-    DB_FILE = "data/bot.db"
+CAPITAL = float(os.getenv("CAPITAL", "1000"))
+RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.01"))
+MAX_DAILY_LOSS = float(os.getenv("MAX_DAILY_LOSS", "0.03"))
+MAX_OPEN_PLANS = int(os.getenv("MAX_OPEN_PLANS", "3"))
+DEFAULT_LEVERAGE = int(os.getenv("DEFAULT_LEVERAGE", "10"))
+MAX_LEVERAGE = int(os.getenv("MAX_LEVERAGE", "20"))
+MIN_TECH_SCORE = float(os.getenv("MIN_TECH_SCORE", "65"))
+MIN_AI_CONFIDENCE = float(os.getenv("MIN_AI_CONFIDENCE", "65"))
+SCAN_SECONDS = int(os.getenv("SCAN_SECONDS", "60"))
+DB_FILE = "data/bot.db"
 
 
 # ============================================================
