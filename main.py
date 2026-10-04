@@ -3095,7 +3095,7 @@ class ExecutionEngine:
             if tp1 <= entry or tp2 <= entry:
                 return False, "LONG TP must be above entry."
 
-        if direction == "SHORT":
+        elif direction == "SHORT":
             if stop <= entry:
                 return False, "SHORT stop must be above entry."
 
