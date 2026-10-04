@@ -3179,10 +3179,10 @@ class ExecutionEngine:
         }
 
     def execute(self, order_plan, mode="MANUAL"):
-        """
+        
         Execution is intentionally disabled in this stage.
         No Bitget order is submitted.
-        """
+        
 
         if mode != "AUTO":
             return {
