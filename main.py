@@ -3028,11 +3028,11 @@ class ExecutionEngine:
             if quantity <= 0:
                 return None
              logging.info(
-    f"Execution market check: requested={symbol}"
-)
-logging.info(
-    f"Execution symbol exists={symbol in self.exchange.markets}"
-)   
+             f"Execution market check: requested={symbol}"
+             )
+             logging.info(
+             f"Execution symbol exists={symbol in self.exchange.markets}"
+              )   
 
             formatted = self.exchange.amount_to_precision(
                 symbol,
