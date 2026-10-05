@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
 from config import Config
+from database.database import Database
 load_dotenv()
 
 logging.basicConfig(
