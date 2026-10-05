@@ -3019,7 +3019,7 @@ class ExecutionEngine:
             return None
 
         def normalize_quantity(self, symbol, quantity):
-        if not self.is_ready():
+            if not self.is_ready():
             return None
 
         try:
