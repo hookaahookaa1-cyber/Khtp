@@ -3018,7 +3018,7 @@ class ExecutionEngine:
             )
             return None
 
-    def normalize_quantity(self, symbol, quantity):
+        def normalize_quantity(self, symbol, quantity):
         if not self.is_ready():
             return None
 
@@ -3027,12 +3027,15 @@ class ExecutionEngine:
 
             if quantity <= 0:
                 return None
-             logging.info(
-             f"Execution market check: requested={symbol}"
-             )
-             logging.info(
-             f"Execution symbol exists={symbol in self.exchange.markets}"
-              )   
+
+            logging.info(
+                f"Execution market check: requested={symbol}"
+            )
+
+            logging.info(
+                f"Execution symbol exists="
+                f"{symbol in self.exchange.markets}"
+            )
 
             formatted = self.exchange.amount_to_precision(
                 symbol,
@@ -3051,6 +3054,11 @@ class ExecutionEngine:
 
             if minimum is not None:
                 if normalized < float(minimum):
+                    logging.warning(
+                        f"Quantity below exchange minimum: "
+                        f"{symbol} quantity={normalized} "
+                        f"minimum={minimum}"
+                    )
                     return None
 
             return normalized
