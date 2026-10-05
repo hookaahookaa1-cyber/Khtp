@@ -3018,8 +3018,8 @@ class ExecutionEngine:
             )
             return None
 
-        def normalize_quantity(self, symbol, quantity):
-            if not self.is_ready():
+    def normalize_quantity(self, symbol, quantity):
+        if not self.is_ready():
             return None
 
         try:
@@ -3069,7 +3069,6 @@ class ExecutionEngine:
                 f"{symbol}: {e}"
             )
             return None
-
     def validate_order(
         self,
         symbol,
