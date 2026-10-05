@@ -2895,7 +2895,7 @@ class ExecutionEngine:
 
         self._initialize_exchange()
 
-    def _initialize_exchange(self):
+        def _initialize_exchange(self):
         if not self.api_key:
             logging.warning(
                 f"Bitget {self.environment} API key is not configured."
@@ -2919,9 +2919,6 @@ class ExecutionEngine:
                 "defaultType": "swap"
             }
 
-            if self.environment == "DEMO":
-                options["demo"] = True
-
             self.exchange = ccxt.bitget({
                 "apiKey": self.api_key,
                 "secret": self.secret,
@@ -2929,6 +2926,9 @@ class ExecutionEngine:
                 "enableRateLimit": True,
                 "options": options
             })
+
+            if self.environment == "DEMO":
+                self.exchange.enable_demo_trading(True)
 
             self.exchange.load_markets()
 
