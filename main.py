@@ -2895,7 +2895,7 @@ class ExecutionEngine:
 
         self._initialize_exchange()
 
-        def _initialize_exchange(self):
+    def _initialize_exchange(self):
         if not self.api_key:
             logging.warning(
                 f"Bitget {self.environment} API key is not configured."
