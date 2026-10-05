@@ -60,7 +60,7 @@ class Config:
         "RENDER/USDT:USDT", 
     ]
     BTC_SYMBOL = "BTC/USDT:USDT"
-    TF_MAIN = "10m"
+    TF_MAIN = "15m"
     TF_1H = "1h"
     TF_4H = "4h"
 
