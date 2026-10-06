@@ -20,6 +20,7 @@ from google.genai import types
 from config import Config
 from database.database import Database
 from telegram.bot import Telegram
+from telegram.ui import TelegramUI
 load_dotenv()
 
 logging.basicConfig(
