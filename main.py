@@ -664,13 +664,13 @@ class TradingBot:
         df4
     )
 
-        if not tech:
+    if not tech:
             return
 
-        if tech["direction"] == "NEUTRAL":
+    if tech["direction"] == "NEUTRAL":
             return
 
-        if tech["score"] < self.config.MIN_TECH_SCORE:
+    if tech["score"] < self.config.MIN_TECH_SCORE:
             return
 
         btc = self.btc_context()
@@ -683,25 +683,25 @@ class TradingBot:
 
         ai = self.ai.analyze(snapshot)
 
-        if not ai:
+    if not ai:
             return
 
-        if ai["direction"] != tech["direction"]:
+    if ai["direction"] != tech["direction"]:
             return
 
-        if ai["confidence"] < self.config.MIN_AI_CONFIDENCE:
+    if ai["confidence"] < self.config.MIN_AI_CONFIDENCE:
             return
 
         # In AUTO mode, only TAKE decisions can proceed
         # toward automatic execution.
-        if (
+    if (
             self.mode == "AUTO"
             and ai["decision"] != "TAKE"
         ):
             return
 
         # In MANUAL mode, IGNORE is still rejected.
-        if (
+    if (
             self.mode == "MANUAL"
             and ai["decision"] == "IGNORE"
         ):
