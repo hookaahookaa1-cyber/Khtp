@@ -1430,33 +1430,33 @@ class TradingBot:
         return flags
 
     def evaluate(self, symbol):
-        df10 = self.market.fetch(
-            symbol,
-            self.config.TF_MAIN
-        )
+    df15 = self.market.fetch(
+        symbol,
+        self.config.TF_MAIN
+    )
 
-        df1 = self.market.fetch(
-            symbol,
-            self.config.TF_1H
-        )
+    df1 = self.market.fetch(
+        symbol,
+        self.config.TF_1H
+    )
 
-        df4 = self.market.fetch(
-            symbol,
-            self.config.TF_4H
-        )
+    df4 = self.market.fetch(
+        symbol,
+        self.config.TF_4H
+    )
 
-        if (
-            df10 is None
-            or df1 is None
-            or df4 is None
-        ):
-            return
+    if (
+        df15 is None
+        or df1 is None
+        or df4 is None
+    ):
+        return
 
-        tech = TechnicalEngine.analyze(
-            df10,
-            df1,
-            df4
-        )
+    tech = TechnicalEngine.analyze(
+        df15,
+        df1,
+        df4
+    )
 
         if not tech:
             return
