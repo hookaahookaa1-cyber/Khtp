@@ -21,6 +21,7 @@ from config import Config
 from database.database import Database
 from telegram.bot import Telegram
 from telegram.ui import TelegramUI
+from market import Market
 load_dotenv()
 
 logging.basicConfig(
