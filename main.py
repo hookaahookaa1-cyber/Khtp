@@ -26,6 +26,7 @@ from indicators import Indicators
 from structure import Structure
 from strategy import Strategy
 from technical_engine import TechnicalEngine
+from risk_engine import RiskEngine
 load_dotenv()
 
 logging.basicConfig(
