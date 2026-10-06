@@ -636,7 +636,7 @@ class TradingBot:
         return flags
 
     def evaluate(self, symbol):
-    df15 = self.market.fetch(
+        df15 = self.market.fetch(
         symbol,
         self.config.TF_MAIN
     )
