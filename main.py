@@ -681,31 +681,37 @@ class TradingBot:
             btc
         )
 
+        # ====================================================
+        # AI IS A CONFIRMATION LAYER, NOT A MESSAGE GATE.
+        # Technical candidates can reach Telegram even when
+        # AI rejects or cannot confirm them.
+        # ====================================================
+
         ai = self.ai.analyze(snapshot)
 
         if not ai:
-            return
+            ai = {
+                "direction": "NEUTRAL",
+                "decision": "IGNORE",
+                "confidence": 0,
+                "setup": "UNKNOWN",
+                "regime": "UNKNOWN",
+                "risk_flags": ["AI_UNAVAILABLE"],
+                "reason": "AI result unavailable."
+            }
 
-        if ai["direction"] != tech["direction"]:
-            return
+        ai_direction_match = (
+            ai.get("direction") == tech["direction"]
+        )
 
-        if ai["confidence"] < self.config.MIN_AI_CONFIDENCE:
-            return
+        ai_confidence_ok = (
+            float(ai.get("confidence", 0))
+            >= self.config.MIN_AI_CONFIDENCE
+        )
 
-        # In AUTO mode, only TAKE decisions can proceed
-        # toward automatic execution.
-        if (
-            self.mode == "AUTO"
-            and ai["decision"] != "TAKE"
-        ):
-            return
-
-        # In MANUAL mode, IGNORE is still rejected.
-        if (
-            self.mode == "MANUAL"
-            and ai["decision"] == "IGNORE"
-        ):
-            return
+        ai_take = (
+            ai.get("decision") == "TAKE"
+        )
 
         flags = self.btc_warning(
             tech["direction"],
@@ -737,21 +743,32 @@ class TradingBot:
         )
 
         if not risk:
+            self.telegram.send(
+                "🟡 TECHNICAL CANDIDATE\n"
+                f"{symbol}\n\n"
+                f"Mode: {self.mode}\n"
+                f"Direction: {tech['direction']}\n"
+                f"Technical Score: "
+                f"{tech['score']:.0f}/100\n\n"
+                "⚠️ Risk calculation unavailable.\n"
+                "No automatic order can be sent.\n\n"
+                f"AI Direction: "
+                f"{ai.get('direction', 'N/A')}\n"
+                f"AI Decision: "
+                f"{ai.get('decision', 'N/A')}\n"
+                f"AI Confidence: "
+                f"{float(ai.get('confidence', 0)):.0f}/100\n"
+                f"AI: {ai.get('reason', 'N/A')}"
+            )
             return
 
         # ====================================================
         # RISK GUARDS
+        # These can block AUTO execution, but they do NOT
+        # hide the technical candidate from Telegram.
         # ====================================================
 
         open_trades = self.db.get_open_trades()
-
-        if len(open_trades) >= self.config.MAX_OPEN_PLANS:
-            logging.warning(
-                f"Max open trades reached: "
-                f"{len(open_trades)}/"
-                f"{self.config.MAX_OPEN_PLANS}"
-            )
-            return
 
         daily = self.db.get_daily_pnl()
 
@@ -760,12 +777,20 @@ class TradingBot:
             * self.config.MAX_DAILY_LOSS
         )
 
+        risk_block_reasons = []
+
+        if len(open_trades) >= self.config.MAX_OPEN_PLANS:
+            risk_block_reasons.append(
+                f"MAX_OPEN_TRADES "
+                f"{len(open_trades)}/"
+                f"{self.config.MAX_OPEN_PLANS}"
+            )
+
         if daily["pnl"] <= -daily_loss_limit:
-            logging.warning(
-                f"Daily loss limit reached: "
+            risk_block_reasons.append(
+                f"DAILY_LOSS_LIMIT "
                 f"${daily['pnl']:.2f}"
             )
-            return
 
         order_plan = self.execution.prepare_order(
             symbol=symbol,
@@ -778,13 +803,83 @@ class TradingBot:
             tp2=risk["tp2"]
         )
 
-        if not order_plan.get("ready"):
-            logging.warning(
-                f"Execution validation failed for "
-                f"{symbol}: "
-                f"{order_plan.get('error')}"
+        execution_ready = bool(
+            order_plan.get("ready")
+        )
+
+        if not execution_ready:
+            risk_block_reasons.append(
+                "EXECUTION_NOT_READY: "
+                + str(
+                    order_plan.get(
+                        "error",
+                        "unknown"
+                    )
+                )
             )
-            return
+
+        # ====================================================
+        # AUTO EXECUTION GATE
+        # ALL confirmations are required for AUTO.
+        # ====================================================
+
+        auto_block_reasons = list(
+            risk_block_reasons
+        )
+
+        if not ai_direction_match:
+            auto_block_reasons.append(
+                "AI_DIRECTION_MISMATCH"
+            )
+
+        if not ai_confidence_ok:
+            auto_block_reasons.append(
+                "AI_CONFIDENCE_BELOW_MIN"
+            )
+
+        if not ai_take:
+            auto_block_reasons.append(
+                f"AI_DECISION_"
+                f"{ai.get('decision', 'UNKNOWN')}"
+            )
+
+        if (
+            self.mode == "AUTO"
+            and not auto_block_reasons
+        ):
+            execution_result = self.execution.execute(
+                order_plan,
+                mode=self.mode
+            )
+
+            if not execution_result.get(
+                "executed",
+                False
+            ):
+                auto_block_reasons.append(
+                    "EXECUTION_BLOCKED: "
+                    + str(
+                        execution_result.get(
+                            "error",
+                            "unknown"
+                        )
+                    )
+                )
+
+        else:
+            execution_result = {
+                "success": False,
+                "executed": False,
+                "error": (
+                    "AUTO blocked until all "
+                    "technical, AI, risk and "
+                    "execution confirmations pass."
+                )
+            }
+
+        # ====================================================
+        # SIGNAL COOLDOWN
+        # ====================================================
 
         key = (
             symbol,
@@ -795,7 +890,8 @@ class TradingBot:
 
         if (
             key in self.last_signal
-            and now - self.last_signal[key] < 30 * 60
+            and now - self.last_signal[key]
+            < 30 * 60
         ):
             return
 
@@ -811,23 +907,64 @@ class TradingBot:
             "direction": tech["direction"],
             "price": tech["price"],
             "tech_score": tech["score"],
-            "ai_confidence": ai["confidence"],
-            "ai_decision": ai["decision"],
-            "setup": ai["setup"],
-            "regime": ai["regime"],
+            "ai_confidence": ai.get(
+                "confidence",
+                0
+            ),
+            "ai_decision": ai.get(
+                "decision",
+                "IGNORE"
+            ),
+            "setup": ai.get(
+                "setup",
+                tech.get(
+                    "setup",
+                    "UNKNOWN"
+                )
+            ),
+            "regime": ai.get(
+                "regime",
+                "UNKNOWN"
+            ),
             "entry": risk["entry"],
             "stop": risk["stop"],
             "tp1": risk["tp1"],
             "tp2": risk["tp2"],
             "risk_reward": risk["risk_reward"],
-            "ai_reason": ai["reason"],
-            "execution_environment": order_plan["environment"],
-            "execution_ready": order_plan["ready"],
-            "execution_quantity": order_plan["quantity"],
+            "ai_reason": ai.get(
+                "reason",
+                ""
+            ),
+            "execution_environment": (
+                order_plan.get(
+                    "environment",
+                    self.execution.environment
+                )
+            ),
+            "execution_ready": execution_ready,
+            "execution_quantity": (
+                order_plan.get("quantity")
+            ),
             "risk_flags": all_flags
         }
 
-        signal_id = self.db.save_signal(signal)
+        self.db.save_signal(signal)
+
+        if auto_block_reasons:
+            status = "🟡 AUTO BLOCKED"
+
+            reason_text = "\n".join(
+                f"• {reason}"
+                for reason in auto_block_reasons
+            )
+
+        else:
+            status = "🟢 AUTO CLEARED"
+
+            reason_text = (
+                "• All technical, AI, risk "
+                "and execution checks passed."
+            )
 
         emoji = (
             "🟢"
@@ -836,29 +973,47 @@ class TradingBot:
         )
 
         message = (
-            f"{emoji} FUTURES SETUP\n"
+            f"{emoji} FUTURES CANDIDATE\n"
             f"{symbol}\n\n"
             f"Mode: {self.mode}\n"
-            f"Direction: {tech['direction']}\n\n"
-            f"Entry: {risk['entry']:.6f}\n"
-            f"Stop: {risk['stop']:.6f}\n"
-            f"TP1: {risk['tp1']:.6f}\n"
-            f"TP2: {risk['tp2']:.6f}\n\n"
-            f"Risk: ${risk['risk_usd']:.2f}\n"
-            f"Notional: ${risk['notional']:.2f}\n"
-            f"Margin @ {leverage}x: ${risk['margin']:.2f}\n"
-            f"R:R: 1:{risk['risk_reward']:.2f}\n\n"
+            f"Direction: "
+            f"{tech['direction']}\n\n"
+            f"Entry: "
+            f"{risk['entry']:.6f}\n"
+            f"Stop: "
+            f"{risk['stop']:.6f}\n"
+            f"TP1: "
+            f"{risk['tp1']:.6f}\n"
+            f"TP2: "
+            f"{risk['tp2']:.6f}\n\n"
+            f"Risk: "
+            f"${risk['risk_usd']:.2f}\n"
+            f"Notional: "
+            f"${risk['notional']:.2f}\n"
+            f"Margin @ {leverage}x: "
+            f"${risk['margin']:.2f}\n"
+            f"R:R: "
+            f"1:{risk['risk_reward']:.2f}\n\n"
             f"Technical Score: "
             f"{tech['score']:.0f}/100\n"
+            f"AI Direction: "
+            f"{ai.get('direction', 'N/A')}\n"
+            f"AI Decision: "
+            f"{ai.get('decision', 'N/A')}\n"
             f"AI Confidence: "
-            f"{ai['confidence']:.0f}/100\n\n"
-            f"Setup: {ai['setup']}\n"
-            f"Regime: {ai['regime']}\n"
+            f"{float(ai.get('confidence', 0)):.0f}/100\n\n"
+            f"Setup: "
+            f"{ai.get('setup', tech.get('setup', 'UNKNOWN'))}\n"
+            f"Regime: "
+            f"{ai.get('regime', 'UNKNOWN')}\n"
             f"BTC 1H: "
             f"{btc.get('btc_1h', 'N/A')}\n"
             f"BTC 4H: "
             f"{btc.get('btc_4h', 'N/A')}\n\n"
-            f"AI: {ai['reason']}"
+            f"AI: "
+            f"{ai.get('reason', 'N/A')}\n\n"
+            f"{status}\n"
+            f"{reason_text}"
         )
 
         if all_flags:
@@ -871,22 +1026,23 @@ class TradingBot:
             )
 
         if self.mode == "AUTO":
-            execution_result = self.execution.execute(
-                order_plan,
-                mode=self.mode
-            )
-
-            message += (
-                "\n\n🤖 AUTO MODE\n"
-                "Signal passed technical, AI and risk filters.\n"
-                f"Execution: "
-                f"{execution_result.get('error', 'N/A')}"
-            )
-
+            if execution_result.get(
+                "executed",
+                False
+            ):
+                message += (
+                    "\n\n🚀 AUTO EXECUTED\n"
+                    "Order execution reported successful."
+                )
+            else:
+                message += (
+                    "\n\n🛑 NO AUTO ORDER\n"
+                    "The setup was logged for review."
+                )
         else:
             message += (
                 "\n\n🖐 MANUAL MODE\n"
-                "No automatic order will be sent."
+                "Candidate shown for manual review."
             )
 
         keyboard = [
@@ -908,11 +1064,28 @@ class TradingBot:
         )
 
         logging.info(
-            f"SIGNAL {symbol} "
+            f"CANDIDATE {symbol} "
             f"{tech['direction']} "
             f"score={tech['score']} "
+            f"ai={ai.get('decision', 'N/A')} "
+            f"confidence={ai.get('confidence', 0)} "
+            f"auto_blocks="
+            f"{len(auto_block_reasons)} "
             f"mode={self.mode}"
         )
+
+`;
+const updated = content.slice(0, start) + newEvaluate + content.slice(end);
+const res = await tools.mcp__GitHub__update_file({
+  repository_full_name:"hookaahookaa1-cyber/Khtp",
+  path:"main.py",
+  content:updated,
+  message:"Allow technical candidates to reach Telegram before AI confirmation",
+  sha:current.result.sha
+});
+text(JSON.stringify(res.result));
+ if (false) {},
+            
     def process_updates(self):
         updates = self.telegram.poll()
 
