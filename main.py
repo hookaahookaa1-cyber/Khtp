@@ -27,6 +27,7 @@ from structure import Structure
 from strategy import Strategy
 from technical_engine import TechnicalEngine
 from risk_engine import RiskEngine
+from execution import ExecutionEngine
 load_dotenv()
 
 logging.basicConfig(
