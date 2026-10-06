@@ -571,7 +571,7 @@ class TradingBot:
             "technical_score": tech["score"],
             "price": tech["price"],
 
-            "10m": {
+            "15m": {
                 "rsi": tech["rsi"],
                 "atr": tech["atr"],
                 "adx": tech["adx"],
