@@ -24,6 +24,7 @@ from telegram.ui import TelegramUI
 from market import Market
 from indicators import Indicators
 from structure import Structure
+from strategy import Strategy
 load_dotenv()
 
 logging.basicConfig(
