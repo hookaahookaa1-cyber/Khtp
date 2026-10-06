@@ -1879,7 +1879,7 @@ class TradingBot:
         # technical, AI and risk filters pass.
 
         def process_updates(self):
-        updates = self.telegram.poll()
+            updates = self.telegram.poll()
 
         for update in updates:
             try:
