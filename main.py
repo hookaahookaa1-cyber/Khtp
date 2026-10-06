@@ -2001,7 +2001,7 @@ class TradingBot:
 
                         result = self.db.close_trade(
                             trade_id,
-                            exit_price
+                            exit_price )
 def process_updates(self):
     updates = self.telegram.poll()
 
