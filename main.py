@@ -1878,6 +1878,118 @@ class TradingBot:
         # AUTO mode reaches this point only after all
         # technical, AI and risk filters pass.
 
+        def process_updates(self):
+        updates = self.telegram.poll()
+
+        for update in updates:
+            try:
+                if "callback_query" in update:
+                    callback = update["callback_query"]
+                    data = callback.get("data", "")
+
+                    self.telegram.answer_callback(
+                        callback.get("id", "")
+                    )
+
+                    if data == "mode_auto":
+                        self.set_mode("AUTO")
+
+                    elif data == "mode_manual":
+                        self.set_mode("MANUAL")
+
+                    continue
+
+                if "message" not in update:
+                    continue
+
+                text = (
+                    update["message"]
+                    .get("text", "")
+                    .strip()
+                )
+
+                if not text:
+                    continue
+
+                if text == "/auto":
+                    self.set_mode("AUTO")
+
+                elif text == "/manual":
+                    self.set_mode("MANUAL")
+
+                elif text == "/mode":
+                    self.telegram.send_mode_panel(
+                        self.mode
+                    )
+
+                elif text == "/status":
+                    trades = self.db.get_open_trades()
+
+                    msg = TelegramUI.status_message(
+                        self.mode,
+                        len(self.config.SYMBOLS),
+                        len(trades)
+                    )
+
+                    self.telegram.send(msg)
+
+                elif text == "/equity":
+                    equity = self.get_exchange_equity()
+
+                    if equity is None:
+                        self.telegram.send(
+                            "⚠️ Unable to read "
+                            "Bitget USDT equity."
+                        )
+                    else:
+                        self.telegram.send(
+                            TelegramUI.equity_message(
+                                self.execution.environment,
+                                equity
+                            )
+                        )
+
+                elif text == "/stats":
+                    stats = self.db.stats()
+
+                    self.telegram.send(
+                        TelegramUI.stats_message(stats)
+                    )
+
+                elif text == "/open":
+                    self.telegram.send(
+                        TelegramUI.manual_open_message()
+                    )
+
+                elif text.startswith("/open "):
+                    self.telegram.send(
+                        TelegramUI.manual_order_disabled_message()
+                    )
+
+                elif text.startswith("/close "):
+                    parts = text.split()
+
+                    if len(parts) != 3:
+                        self.telegram.send(
+                            TelegramUI.close_usage_message()
+                        )
+                        continue
+
+                    try:
+                        trade_id = int(parts[1])
+                        exit_price = float(parts[2])
+
+                        result = self.db.close_trade(
+                            trade_id,
+                            exit_price
+                        )
+
+                        if not result:
+                            self.telegram.send(
+                                TelegramUI.trade_not_found_message()
+                            )
+                            continue
+
     def process_updates(self):
         updates = self.telegram.poll()
 
@@ -1925,15 +2037,10 @@ class TradingBot:
                 elif text == "/status":
                     trades = self.db.get_open_trades()
 
-                    msg = (
-                        "🤖 BOT STATUS\n\n"
-                        f"Mode: {self.mode}\n"
-                        "Market: Bitget USDT-M\n"
-                        "Margin: Isolated\n"
-                        f"Symbols: "
-                        f"{len(self.config.SYMBOLS)}\n"
-                        f"Open journal trades: "
-                        f"{len(trades)}"
+                    msg = TelegramUI.status_message(
+                        self.mode,
+                        len(self.config.SYMBOLS),
+                        len(trades)
                     )
 
                     self.telegram.send(msg)
@@ -1948,42 +2055,27 @@ class TradingBot:
                         )
                     else:
                         self.telegram.send(
-                            "💰 EXCHANGE EQUITY\n\n"
-                            f"Environment: "
-                            f"{self.execution.environment}\n"
-                            f"USDT Equity: "
-                            f"${equity:.2f}"
+                            TelegramUI.equity_message(
+                                self.execution.environment,
+                                equity
+                            )
                         )
 
                 elif text == "/stats":
                     stats = self.db.stats()
 
                     self.telegram.send(
-                        "📊 BOT STATISTICS\n\n"
-                        f"Trades: {stats['total']}\n"
-                        f"Wins: {stats['wins']}\n"
-                        f"Losses: {stats['losses']}\n"
-                        f"Win Rate: "
-                        f"{stats['win_rate']:.2f}%\n"
-                        f"Total PnL: "
-                        f"${stats['pnl']:.2f}\n"
-                        f"Average R: "
-                        f"{stats['avg_r']:.3f}\n"
-                        f"Profit Factor: "
-                        f"{stats['profit_factor']:.2f}"
+                        TelegramUI.stats_message(stats)
                     )
 
                 elif text == "/open":
                     self.telegram.send(
-                        "Manual trade registration will be "
-                        "handled after ExecutionEngine is added."
+                        TelegramUI.manual_open_message()
                     )
 
                 elif text.startswith("/open "):
                     self.telegram.send(
-                        "⚠️ Manual order registration is "
-                        "temporarily disabled while the "
-                        "new execution layer is being installed."
+                        TelegramUI.manual_order_disabled_message()
                     )
 
                 elif text.startswith("/close "):
@@ -1991,7 +2083,7 @@ class TradingBot:
 
                     if len(parts) != 3:
                         self.telegram.send(
-                            "/close TRADE_ID EXIT_PRICE"
+                            TelegramUI.close_usage_message()
                         )
                         continue
 
@@ -2001,138 +2093,34 @@ class TradingBot:
 
                         result = self.db.close_trade(
                             trade_id,
-                            exit_price )
-def process_updates(self):
-    updates = self.telegram.poll()
-
-    for update in updates:
-        try:
-            if "callback_query" in update:
-                callback = update["callback_query"]
-                data = callback.get("data", "")
-
-                self.telegram.answer_callback(
-                    callback.get("id", "")
-                )
-
-                if data == "mode_auto":
-                    self.set_mode("AUTO")
-
-                elif data == "mode_manual":
-                    self.set_mode("MANUAL")
-
-                continue
-
-            if "message" not in update:
-                continue
-
-            text = (
-                update["message"]
-                .get("text", "")
-                .strip()
-            )
-
-            if not text:
-                continue
-
-            if text == "/auto":
-                self.set_mode("AUTO")
-
-            elif text == "/manual":
-                self.set_mode("MANUAL")
-
-            elif text == "/mode":
-                self.telegram.send_mode_panel(
-                    self.mode
-                )
-
-            elif text == "/status":
-                trades = self.db.get_open_trades()
-
-                msg = TelegramUI.status_message(
-                    self.mode,
-                    len(self.config.SYMBOLS),
-                    len(trades)
-                )
-
-                self.telegram.send(msg)
-
-            elif text == "/equity":
-                equity = self.get_exchange_equity()
-
-                if equity is None:
-                    self.telegram.send(
-                        "⚠️ Unable to read "
-                        "Bitget USDT equity."
-                    )
-                else:
-                    self.telegram.send(
-                        TelegramUI.equity_message(
-                            self.execution.environment,
-                            equity
+                            exit_price
                         )
-                    )
 
-            elif text == "/stats":
-                stats = self.db.stats()
+                        if not result:
+                            self.telegram.send(
+                                TelegramUI.trade_not_found_message()
+                            )
+                            continue
 
-                self.telegram.send(
-                    TelegramUI.stats_message(stats)
-                )
-
-            elif text == "/open":
-                self.telegram.send(
-                    TelegramUI.manual_open_message()
-                )
-
-            elif text.startswith("/open "):
-                self.telegram.send(
-                    TelegramUI.manual_order_disabled_message()
-                )
-
-            elif text.startswith("/close "):
-                parts = text.split()
-
-                if len(parts) != 3:
-                    self.telegram.send(
-                        TelegramUI.close_usage_message()
-                    )
-                    continue
-
-                try:
-                    trade_id = int(parts[1])
-                    exit_price = float(parts[2])
-
-                    result = self.db.close_trade(
-                        trade_id,
-                        exit_price
-                    )
-
-                    if not result:
                         self.telegram.send(
-                            TelegramUI.trade_not_found_message()
+                            TelegramUI.trade_closed_message(
+                                result
+                            )
                         )
-                        continue
 
-                    self.telegram.send(
-                        TelegramUI.trade_closed_message(
-                            result
+                    except Exception as e:
+                        logging.error(
+                            f"Close command error: {e}"
                         )
-                    )
 
-                except Exception as e:
-                    logging.error(
-                        f"Close command error: {e}"
-                    )
+                        self.telegram.send(
+                            TelegramUI.invalid_close_message()
+                        )
 
-                    self.telegram.send(
-                        TelegramUI.invalid_close_message()
-                    )
-
-        except Exception as e:
-            logging.error(
-                f"Update processing error: {e}"
-            )
+            except Exception as e:
+                logging.error(
+                    f"Update processing error: {e}"
+                )
 
     def run(self):
         self.telegram.send(
