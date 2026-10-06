@@ -1878,8 +1878,8 @@ class TradingBot:
         # AUTO mode reaches this point only after all
         # technical, AI and risk filters pass.
 
-        def process_updates(self):
-            updates = self.telegram.poll()
+    def process_updates(self):
+        updates = self.telegram.poll()
 
         for update in updates:
             try:
