@@ -637,40 +637,40 @@ class TradingBot:
 
     def evaluate(self, symbol):
         df15 = self.market.fetch(
-        symbol,
-        self.config.TF_MAIN
-    )
+            symbol,
+            self.config.TF_MAIN
+        )
 
-    df1 = self.market.fetch(
-        symbol,
-        self.config.TF_1H
-    )
+        df1 = self.market.fetch(
+            symbol,
+            self.config.TF_1H
+        )
 
-    df4 = self.market.fetch(
-        symbol,
-        self.config.TF_4H
-    )
+        df4 = self.market.fetch(
+            symbol,
+            self.config.TF_4H
+        )
 
-    if (
-        df15 is None
-        or df1 is None
-        or df4 is None
-    ):
-        return
-
-    tech = TechnicalEngine.analyze(
-        df15,
-        df1,
-        df4
-    )
-
-    if not tech:
+        if (
+            df15 is None
+            or df1 is None
+            or df4 is None
+        ):
             return
 
-    if tech["direction"] == "NEUTRAL":
+        tech = TechnicalEngine.analyze(
+            df15,
+            df1,
+            df4
+        )
+
+        if not tech:
             return
 
-    if tech["score"] < self.config.MIN_TECH_SCORE:
+        if tech["direction"] == "NEUTRAL":
+            return
+
+        if tech["score"] < self.config.MIN_TECH_SCORE:
             return
 
         btc = self.btc_context()
@@ -683,25 +683,25 @@ class TradingBot:
 
         ai = self.ai.analyze(snapshot)
 
-    if not ai:
+        if not ai:
             return
 
-    if ai["direction"] != tech["direction"]:
+        if ai["direction"] != tech["direction"]:
             return
 
-    if ai["confidence"] < self.config.MIN_AI_CONFIDENCE:
+        if ai["confidence"] < self.config.MIN_AI_CONFIDENCE:
             return
 
         # In AUTO mode, only TAKE decisions can proceed
         # toward automatic execution.
-    if (
+        if (
             self.mode == "AUTO"
             and ai["decision"] != "TAKE"
         ):
             return
 
         # In MANUAL mode, IGNORE is still rejected.
-    if (
+        if (
             self.mode == "MANUAL"
             and ai["decision"] == "IGNORE"
         ):
@@ -913,14 +913,6 @@ class TradingBot:
             f"score={tech['score']} "
             f"mode={self.mode}"
         )
-
-        # IMPORTANT:
-        # The actual Bitget order execution will be added
-        # through a separate ExecutionEngine.
-        #
-        # AUTO mode reaches this point only after all
-        # technical, AI and risk filters pass.
-
     def process_updates(self):
         updates = self.telegram.poll()
 
