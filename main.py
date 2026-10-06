@@ -25,6 +25,7 @@ from market import Market
 from indicators import Indicators
 from structure import Structure
 from strategy import Strategy
+from technical_engine import TechnicalEngine
 load_dotenv()
 
 logging.basicConfig(
