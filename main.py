@@ -1074,18 +1074,7 @@ class TradingBot:
             f"mode={self.mode}"
         )
 
-`;
-const updated = content.slice(0, start) + newEvaluate + content.slice(end);
-const res = await tools.mcp__GitHub__update_file({
-  repository_full_name:"hookaahookaa1-cyber/Khtp",
-  path:"main.py",
-  content:updated,
-  message:"Allow technical candidates to reach Telegram before AI confirmation",
-  sha:current.result.sha
-});
-text(JSON.stringify(res.result));
- if (false) {},
-            
+
     def process_updates(self):
         updates = self.telegram.poll()
 
