@@ -1,7 +1,7 @@
 requests
 numpy
 pandas
-ccxt
+ccxt==4.5.85
 python-dotenv
 pydantic
 google-genai
