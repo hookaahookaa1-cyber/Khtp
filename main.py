@@ -754,8 +754,6 @@ class TradingBot:
                 else tech["price"]
             ),
             atr=tech["atr"],
-    ),
-            atr=tech["atr"],
             capital=capital,
             risk_pct=self.config.RISK_PER_TRADE,
             leverage=leverage,
