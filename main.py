@@ -688,7 +688,7 @@ class TradingBot:
             technical=tech
                 )
 
-          entry_status = (
+        entry_status = (
             "CONFIRMED"
             if entry_timing.get("valid")
             else "NOT CONFIRMED"
