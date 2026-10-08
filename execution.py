@@ -74,10 +74,35 @@ class ExecutionEngine:
 
             self.exchange.load_markets()
 
-            logging.info(
-                f"Bitget {self.environment} execution "
-                "environment initialized."
-            )
+            self.exchange.load_markets()
+
+swap_symbols = [
+    market_symbol
+    for market_symbol, market in self.exchange.markets.items()
+    if market.get("swap")
+]
+
+logging.info(
+    f"Bitget {self.environment} execution "
+    "environment initialized."
+)
+
+logging.info(
+    f"Loaded swap markets: {len(swap_symbols)}"
+)
+
+logging.info(
+    "Target swap symbols: "
+    + str([
+        symbol
+        for symbol in (
+            "FET/USDT:USDT",
+            "NEAR/USDT:USDT",
+            "RENDER/USDT:USDT"
+        )
+        if symbol in self.exchange.markets
+    ])
+)
 
         except Exception as e:
             self.exchange = None
