@@ -663,6 +663,7 @@ class TradingBot:
             df15 is None
             or df1 is None
             or df4 is None
+            or df5 is None
         ):
             return
 
