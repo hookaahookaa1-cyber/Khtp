@@ -179,6 +179,42 @@ class Database:
 
             self.conn.commit()
 
+                # ------------------------------------------------
+            # SIGNAL METADATA MIGRATION
+            # ------------------------------------------------
+
+            signal_columns = {
+                "strategy_id": "TEXT",
+                "strategy_version": "TEXT",
+                "entry_method": "TEXT",
+                "market_regime": "TEXT",
+                "timeframe_profile": "TEXT",
+                "entry_timeframe": "TEXT",
+                "entry_score": "REAL",
+                "entry_confirmed": "INTEGER"
+            }
+
+            cur.execute("""
+                PRAGMA table_info(signals)
+            """)
+
+            existing_columns = {
+                row[1]
+                for row in cur.fetchall()
+            }
+
+            for column, column_type in signal_columns.items():
+                if column not in existing_columns:
+                    cur.execute(
+                        f"""
+                        ALTER TABLE signals
+                        ADD COLUMN {column}
+                        {column_type}
+                        """
+                    )
+
+            self.conn.commit()
+
     # ========================================================
     # PORTFOLIO INITIALIZATION
     # ========================================================
