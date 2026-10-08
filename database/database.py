@@ -1329,7 +1329,15 @@ class Database:
                     signal_entry,
                     signal_stop,
                     tp1,
-                    tp2
+                    tp2,
+                    strategy_id,
+                    strategy_version,
+                    entry_method,
+                    market_regime,
+                    timeframe_profile,
+                    entry_timeframe,
+                    entry_score,
+                    entry_confirmed
                 ) = row
 
                 signal_data = {
