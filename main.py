@@ -28,6 +28,7 @@ from strategy import Strategy
 from technical_engine import TechnicalEngine
 from risk_engine import RiskEngine
 from execution import ExecutionEngine
+from entry_timing import EntryTimingEngine
 load_dotenv()
 
 logging.basicConfig(
