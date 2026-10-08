@@ -479,7 +479,9 @@ class TradingBot:
         # MANUAL = signals only, no automatic execution.
         self.mode = "AUTO"
 
-        self.last_signal = {}
+        # Cooldown is applied ONLY after a successful execution.
+        # Candidates/signals that are not executed are never blocked.
+        self.trade_cooldown = {}
         self.running = True
 
     def set_mode(self, mode):
