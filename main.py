@@ -888,7 +888,7 @@ class TradingBot:
 # ====================================================
 
         if execution_result.get("executed", False):
-    self.trade_cooldown[symbol] = time.time()
+            self.trade_cooldown[symbol] = time.time()
 
         all_flags = (
             flags
