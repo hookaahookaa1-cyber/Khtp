@@ -746,12 +746,14 @@ class TradingBot:
             else self.config.CAPITAL
         )
 
-    risk = RiskEngine.calculate(
-        direction=tech["direction"],
-        entry=(
-        entry_timing["entry"]
-        if entry_timing.get("valid")
-        else tech["price"]
+        risk = RiskEngine.calculate(
+            direction=tech["direction"],
+            entry=(
+                entry_timing["entry"]
+                if entry_timing.get("valid")
+                else tech["price"]
+            ),
+            atr=tech["atr"],
     ),
             atr=tech["atr"],
             capital=capital,
