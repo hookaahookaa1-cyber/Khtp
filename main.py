@@ -923,7 +923,7 @@ class TradingBot:
             + ai.get("risk_flags", [])
         )
 
-                strategy_metadata = Strategy.metadata(
+        strategy_metadata = Strategy.metadata(
             strategy_id=Strategy.DEFAULT_STRATEGY,
             entry_method=(
                 entry_timing.get("entry_method")
@@ -980,7 +980,7 @@ class TradingBot:
             "execution_quantity": (
                 order_plan.get("quantity")
             ),
-                        "risk_flags": all_flags,
+            "risk_flags": all_flags,
             "strategy_id": strategy_metadata["strategy_id"],
             "strategy_version": strategy_metadata["strategy_version"],
             "entry_method": strategy_metadata["entry_method"],
