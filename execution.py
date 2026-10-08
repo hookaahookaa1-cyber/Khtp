@@ -696,10 +696,6 @@ class ExecutionEngine:
                 "the initial validation stage."
             )
         }      
-                "executed": False,
-                "environment": self.environment,
-                "error": "Empty order plan."
-            }
 
         return {
             "success": False,
