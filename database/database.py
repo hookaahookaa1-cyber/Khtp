@@ -845,7 +845,39 @@ class Database:
                 created_at TEXT
             )
             """)
+            # ------------------------------------------------
+            # LEARNING RECORDS METADATA MIGRATION
+            # ------------------------------------------------
 
+            learning_columns = {
+                "strategy_id": "TEXT",
+                "strategy_version": "TEXT",
+                "entry_method": "TEXT",
+                "market_regime": "TEXT",
+                "timeframe_profile": "TEXT",
+                "entry_timeframe": "TEXT",
+                "entry_score": "REAL",
+                "entry_confirmed": "INTEGER"
+            }
+
+            cur.execute("""
+                PRAGMA table_info(learning_records)
+            """)
+
+            existing_learning_columns = {
+                row[1]
+                for row in cur.fetchall()
+            }
+
+            for column, column_type in learning_columns.items():
+                if column not in existing_learning_columns:
+                    cur.execute(
+                        f"""
+                        ALTER TABLE learning_records
+                        ADD COLUMN {column}
+                        {column_type}
+                        """
+                    )
             self.conn.commit()
 
     # ========================================================
