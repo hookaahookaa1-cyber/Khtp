@@ -136,6 +136,12 @@ class ExecutionEngine:
     # READY CHECK
     # ============================================================
 
+    def is_ready(self):
+        return (
+            self.exchange is not None
+            and bool(self.exchange.markets)
+        )
+
     def fetch_equity(self):
         if not self.is_ready():
             return None
