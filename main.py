@@ -798,6 +798,11 @@ class TradingBot:
 
         risk_block_reasons = []
 
+        if not entry_timing.get("valid", False):
+            risk_block_reasons.append(
+                "5M_ENTRY_NOT_CONFIRMED"
+            )
+
         if len(open_trades) >= self.config.MAX_OPEN_PLANS:
             risk_block_reasons.append(
                 f"MAX_OPEN_TRADES "
