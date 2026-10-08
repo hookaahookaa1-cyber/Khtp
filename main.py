@@ -686,7 +686,22 @@ class TradingBot:
             df5,
             tech["direction"],
             technical=tech
-                ) 
+                )
+
+          entry_status = (
+            "CONFIRMED"
+            if entry_timing.get("valid")
+            else "NOT CONFIRMED"
+        )
+
+        entry_method = (
+            entry_timing.get("entry_method")
+            or "NONE"
+        )
+
+        entry_score = float(
+            entry_timing.get("score", 0)
+        )  
 
         btc = self.btc_context()
 
