@@ -24,8 +24,7 @@ class Telegram:
 
         payload = {
             "chat_id": self.chat_id,
-            "text": text,
-            "parse_mode": "Markdown"
+            "text": text
         }
 
         if keyboard:
