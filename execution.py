@@ -136,22 +136,39 @@ class ExecutionEngine:
     # READY CHECK
     # ============================================================
 
-    def is_ready(self):
-        return self.exchange is not None
-
-    # ============================================================
-    # EQUITY
-    # ============================================================
-
-    def fetch_equity(self):
+def fetch_equity(self):
         if not self.is_ready():
             return None
 
+        # Diagnostic test: read Bitget futures account info only.
+        try:
+            logging.info(
+                f"Bitget private API diagnostic: "
+                f"environment={self.environment}, "
+                f"ccxt_version={ccxt.__version__}"
+            )
+
+            response = (
+                self.exchange.privateMixGetV2MixAccountAccounts(
+                    {"productType": "USDT-FUTURES"}
+                )
+            )
+
+            logging.info(
+                "Bitget account-info diagnostic succeeded. "
+                f"Response type={type(response).__name__}"
+            )
+
+        except Exception as e:
+            logging.error(
+                f"Bitget account-info diagnostic failed: "
+                f"{type(e).__name__}: {e}"
+            )
+
+        # Existing balance test.
         try:
             balance = self.exchange.fetch_balance()
-
             usdt = balance.get("USDT", {})
-
             total = usdt.get("total")
 
             if total is None:
