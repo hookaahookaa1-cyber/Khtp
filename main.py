@@ -682,6 +682,12 @@ class TradingBot:
         if tech["score"] < self.config.MIN_TECH_SCORE:
             return
 
+        entry_timing = EntryTimingEngine.analyze(
+            df5,
+            tech["direction"],
+            technical=tech
+                ) 
+
         btc = self.btc_context()
 
         snapshot = self.snapshot(
