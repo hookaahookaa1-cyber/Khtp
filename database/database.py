@@ -53,7 +53,15 @@ class Database:
                 tp2 REAL,
                 risk_reward REAL,
                 ai_reason TEXT,
-                risk_flags TEXT
+                risk_flags TEXT,
+                strategy_id TEXT,
+                strategy_version TEXT,
+                entry_method TEXT,
+                market_regime TEXT,
+                timeframe_profile TEXT,
+                entry_timeframe TEXT,
+                entry_score REAL,
+                entry_confirmed INTEGER
             )
             """)
 
