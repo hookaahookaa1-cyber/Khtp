@@ -980,7 +980,19 @@ class TradingBot:
             "execution_quantity": (
                 order_plan.get("quantity")
             ),
-            "risk_flags": all_flags
+                        "risk_flags": all_flags,
+            "strategy_id": strategy_metadata["strategy_id"],
+            "strategy_version": strategy_metadata["strategy_version"],
+            "entry_method": strategy_metadata["entry_method"],
+            "market_regime": strategy_metadata["market_regime"],
+            "timeframe_profile": strategy_metadata["timeframe_profile"],
+            "entry_timeframe": strategy_metadata["entry_timeframe"],
+            "entry_score": entry_score,
+            "entry_confirmed": (
+                1
+                if entry_timing.get("valid")
+                else 0
+            )
         }
 
         self.db.save_signal(signal)
