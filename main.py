@@ -880,24 +880,15 @@ class TradingBot:
             }
 
         # ====================================================
-        # SIGNAL COOLDOWN
+        # TRADE COOLDOWN
         # ====================================================
+        # Cooldown starts ONLY after a successful execution.
+# A candidate that was not executed must never start
+# the cooldown or hide future candidates.
+# ====================================================
 
-        key = (
-            symbol,
-            tech["direction"]
-        )
-
-        now = time.time()
-
-        if (
-            key in self.last_signal
-            and now - self.last_signal[key]
-            < 30 * 60
-        ):
-            return
-
-        self.last_signal[key] = now
+        if execution_result.get("executed", False):
+    self.trade_cooldown[symbol] = time.time()
 
         all_flags = (
             flags
