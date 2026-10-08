@@ -73,7 +73,7 @@ class EntryTimingEngine:
         current = data.iloc[-2]
         previous = data.iloc[-3]
 
-        closed_data = data.iloc[:-1]
+        closed_data = data.iloc[-2]
 
         price = float(current["close"])
 
