@@ -360,10 +360,6 @@ class Database:
                     initial_capital,
                     initial_capital,
                     0
-                ))
-
-                self.conn.commit()
-
     # ========================================================
     # SAVE SIGNAL
     # ========================================================
@@ -389,9 +385,20 @@ class Database:
                 tp2,
                 risk_reward,
                 ai_reason,
-                risk_flags
+                risk_flags,
+                strategy_id,
+                strategy_version,
+                entry_method,
+                market_regime,
+                timeframe_profile,
+                entry_timeframe,
+                entry_score,
+                entry_confirmed
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?
+            )
             """, (
                 datetime.utcnow().isoformat(),
                 data["symbol"],
@@ -408,12 +415,28 @@ class Database:
                 data["tp2"],
                 data["risk_reward"],
                 data["ai_reason"],
-                json.dumps(data["risk_flags"])
+                json.dumps(data["risk_flags"]),
+                data.get("strategy_id", "TREND_CONTINUATION"),
+                data.get("strategy_version", "1.0"),
+                data.get("entry_method", "PULLBACK"),
+                data.get("market_regime", "UNKNOWN"),
+                data.get(
+                    "timeframe_profile",
+                    "15m+1h+4h"
+                ),
+                data.get(
+                    "entry_timeframe",
+                    "5m"
+                ),
+                data.get("entry_score", 0),
+                data.get("entry_confirmed", 0)
             ))
 
             self.conn.commit()
 
             return cur.lastrowid
+
+
 
     # ========================================================
     # OPEN TRADE
