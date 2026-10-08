@@ -533,3 +533,48 @@ class ExecutionEngine:
                 "the initial validation stage."
             )
         }
+            "quantity": normalized_quantity,
+            "leverage": validation["leverage"],
+            "entry": validation["entry"],
+            "stop": validation["stop"],
+            "tp1": validation["tp1"],
+            "tp2": validation["tp2"],
+            "margin_mode": "isolated",
+
+            # Actual order submission is still disabled.
+            "execution_enabled": False
+        }
+
+    def execute(self, order_plan, mode="MANUAL"):
+
+        if mode != "AUTO":
+            return {
+                "success": False,
+                "executed": False,
+                "environment": self.environment,
+                "error": (
+                    "Automatic execution is blocked "
+                    "because the bot is not in AUTO mode."
+                )
+            }
+
+        if not order_plan:
+            return {
+                "success": False,
+                "executed": False,
+                "environment": self.environment,
+                "error": "Empty order plan."
+            }
+
+        # Actual order execution remains disabled
+        # during the initial validation stage.
+
+        return {
+            "success": False,
+            "executed": False,
+            "environment": self.environment,
+            "error": (
+                "Order execution is disabled during "
+                "the initial validation stage."
+            )
+        }
