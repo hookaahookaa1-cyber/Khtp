@@ -11,8 +11,9 @@ class ExecutionEngine:
     - Selects DEMO or LIVE credentials.
     - Validates environment and trading parameters.
     - Loads Bitget swap markets.
+    - Validates symbols and quantities.
     - Prepares order information.
-    - Does NOT submit live/demo orders yet.
+    - Does NOT submit real orders yet.
     """
 
     def __init__(self):
@@ -36,7 +37,12 @@ class ExecutionEngine:
 
         self._initialize_exchange()
 
+    # ============================================================
+    # INITIALIZE BITGET
+    # ============================================================
+
     def _initialize_exchange(self):
+
         if not self.api_key:
             logging.warning(
                 f"Bitget {self.environment} API key is not configured."
@@ -56,6 +62,7 @@ class ExecutionEngine:
             return
 
         try:
+
             options = {
                 "defaultType": "swap"
             }
@@ -68,14 +75,22 @@ class ExecutionEngine:
                 "options": options
             })
 
+            # ----------------------------------------------------
+            # DEMO / PAPER TRADING
+            # ----------------------------------------------------
+
             if self.environment == "DEMO":
                 self.exchange.enable_demo_trading(True)
 
+            # ----------------------------------------------------
+            # LOAD MARKETS
+            # ----------------------------------------------------
+
             self.exchange.load_markets()
 
-            # ====================================================
-            # BITGET SWAP MARKET DIAGNOSTICS
-            # ====================================================
+            # ----------------------------------------------------
+            # DIAGNOSTICS
+            # ----------------------------------------------------
 
             swap_symbols = [
                 market_symbol
@@ -98,30 +113,67 @@ class ExecutionEngine:
                 "RENDER/USDT:USDT"
             ]
 
+            available_targets = [
+                symbol
+                for symbol in target_symbols
+                if symbol in self.exchange.markets
+            ]
+
             logging.info(
-                "Target swap symbols: "
-                + str([
-                    symbol
-                    for symbol in target_symbols
-                    if symbol in self.exchange.markets
-                ])
+                f"Target swap symbols: {available_targets}"
             )
 
+            # ----------------------------------------------------
+            # LOG MARKET DETAILS
+            # ----------------------------------------------------
+
+            for symbol in target_symbols:
+
+                if symbol in self.exchange.markets:
+
+                    market = self.exchange.markets[symbol]
+
+                    logging.info(
+                        f"Execution market available: {symbol} | "
+                        f"type={market.get('type')} | "
+                        f"swap={market.get('swap')} | "
+                        f"contract={market.get('contract')} | "
+                        f"contractSize={market.get('contractSize')}"
+                    )
+
+                else:
+
+                    logging.warning(
+                        f"Execution market NOT found: {symbol}"
+                    )
+
         except Exception as e:
+
             self.exchange = None
 
             logging.error(
                 f"Bitget initialization error: {e}"
             )
 
+    # ============================================================
+    # READY CHECK
+    # ============================================================
+
     def is_ready(self):
+
         return self.exchange is not None
 
+    # ============================================================
+    # EQUITY
+    # ============================================================
+
     def fetch_equity(self):
+
         if not self.is_ready():
             return None
 
         try:
+
             balance = self.exchange.fetch_balance()
 
             usdt = balance.get("USDT", {})
@@ -132,106 +184,211 @@ class ExecutionEngine:
                 total = usdt.get("free")
 
             if total is None:
+
                 logging.warning(
                     "USDT equity could not be determined."
                 )
+
                 return None
 
             equity = float(total)
 
             if equity <= 0:
+
                 logging.warning(
                     f"Invalid USDT equity: {equity}"
                 )
+
                 return None
 
             return equity
 
         except Exception as e:
+
             logging.error(
                 f"Equity fetch error: {e}"
             )
+
             return None
 
+    # ============================================================
+    # MARKET INFO
+    # ============================================================
+
     def market_info(self, symbol):
+
         if not self.is_ready():
             return None
 
         try:
+
+            if symbol not in self.exchange.markets:
+
+                logging.warning(
+                    f"Market not found: {symbol}"
+                )
+
+                return None
+
             market = self.exchange.market(symbol)
+
+            limits = market.get("limits", {})
+            amount_limits = limits.get("amount", {})
+            price_limits = limits.get("price", {})
+            precision = market.get("precision", {})
 
             return {
                 "symbol": symbol,
-                "contract": market.get("contract", False),
-                "contract_size": market.get("contractSize"),
-                "amount_min": (
-                    market.get("limits", {})
-                    .get("amount", {})
-                    .get("min")
+
+                "contract": market.get(
+                    "contract",
+                    False
                 ),
-                "amount_max": (
-                    market.get("limits", {})
-                    .get("amount", {})
-                    .get("max")
+
+                "swap": market.get(
+                    "swap",
+                    False
                 ),
-                "price_min": (
-                    market.get("limits", {})
-                    .get("price", {})
-                    .get("min")
+
+                "contract_size": market.get(
+                    "contractSize"
                 ),
-                "precision_amount": (
-                    market.get("precision", {})
-                    .get("amount")
+
+                "amount_min": amount_limits.get(
+                    "min"
                 ),
-                "precision_price": (
-                    market.get("precision", {})
-                    .get("price")
+
+                "amount_max": amount_limits.get(
+                    "max"
+                ),
+
+                "price_min": price_limits.get(
+                    "min"
+                ),
+
+                "precision_amount": precision.get(
+                    "amount"
+                ),
+
+                "precision_price": precision.get(
+                    "price"
                 )
             }
 
         except Exception as e:
+
             logging.error(
                 f"Market info error {symbol}: {e}"
             )
+
             return None
 
-    def normalize_quantity(self, symbol, quantity):
+    # ============================================================
+    # NORMALIZE QUANTITY
+    # ============================================================
+
+    def normalize_quantity(
+        self,
+        symbol,
+        quantity
+    ):
+
         if not self.is_ready():
             return None
 
         try:
+
             quantity = float(quantity)
 
             if quantity <= 0:
+
+                logging.warning(
+                    f"Invalid quantity: {quantity}"
+                )
+
                 return None
 
+            # ----------------------------------------------------
+            # SYMBOL CHECK
+            # ----------------------------------------------------
+
             logging.info(
-                f"Execution market check: requested={symbol}"
+                f"Execution market check: "
+                f"requested={symbol}"
+            )
+
+            symbol_exists = (
+                symbol in self.exchange.markets
             )
 
             logging.info(
                 f"Execution symbol exists="
-                f"{symbol in self.exchange.markets}"
+                f"{symbol_exists}"
             )
 
-            formatted = self.exchange.amount_to_precision(
-                symbol,
-                quantity
+            if not symbol_exists:
+
+                logging.error(
+                    f"Execution symbol does not exist: "
+                    f"{symbol}"
+                )
+
+                return None
+
+            # ----------------------------------------------------
+            # MARKET
+            # ----------------------------------------------------
+
+            market = self.exchange.market(symbol)
+
+            if not market.get("contract", False):
+
+                logging.error(
+                    f"Market is not a contract market: "
+                    f"{symbol}"
+                )
+
+                return None
+
+            # ----------------------------------------------------
+            # PRECISION
+            # ----------------------------------------------------
+
+            formatted = (
+                self.exchange.amount_to_precision(
+                    symbol,
+                    quantity
+                )
             )
 
             normalized = float(formatted)
 
-            market = self.exchange.market(symbol)
+            if normalized <= 0:
+
+                logging.error(
+                    f"Normalized quantity is invalid: "
+                    f"{symbol} "
+                    f"quantity={normalized}"
+                )
+
+                return None
+
+            # ----------------------------------------------------
+            # MINIMUM
+            # ----------------------------------------------------
 
             minimum = (
-                market.get("limits", {})
+                market
+                .get("limits", {})
                 .get("amount", {})
                 .get("min")
             )
 
             if minimum is not None:
 
-                if normalized < float(minimum):
+                minimum = float(minimum)
+
+                if normalized < minimum:
 
                     logging.warning(
                         f"Quantity below exchange minimum: "
@@ -242,15 +399,27 @@ class ExecutionEngine:
 
                     return None
 
+            logging.info(
+                f"Quantity normalized successfully: "
+                f"{symbol} "
+                f"requested={quantity} "
+                f"normalized={normalized}"
+            )
+
             return normalized
 
         except Exception as e:
+
             logging.error(
                 f"Quantity normalization error "
                 f"{symbol}: {e}"
             )
 
             return None
+
+    # ============================================================
+    # VALIDATE ORDER
+    # ============================================================
 
     def validate_order(
         self,
@@ -263,115 +432,122 @@ class ExecutionEngine:
         tp1,
         tp2
     ):
+
         if not self.is_ready():
+
             return {
                 "valid": False,
-                "error": "Execution exchange is not ready."
+                "error": (
+                    "Execution exchange is not ready."
+                )
             }
 
-        if direction not in ("LONG", "SHORT"):
+        # --------------------------------------------------------
+        # DIRECTION
+        # --------------------------------------------------------
+
+        if direction not in (
+            "LONG",
+            "SHORT"
+        ):
+
             return {
                 "valid": False,
-                "error": f"Invalid direction: {direction}"
+                "error": (
+                    f"Invalid direction: {direction}"
+                )
             }
+
+        # --------------------------------------------------------
+        # LEVERAGE
+        # --------------------------------------------------------
 
         try:
+
             leverage = int(leverage)
+
         except Exception:
+
             return {
                 "valid": False,
                 "error": "Invalid leverage."
             }
 
         if leverage <= 0:
+
             return {
                 "valid": False,
-                "error": "Leverage must be greater than zero."
+                "error": (
+                    "Leverage must be greater than zero."
+                )
             }
 
         if leverage > Config.MAX_LEVERAGE:
+
             return {
                 "valid": False,
                 "error": (
                     f"Leverage {leverage} exceeds "
-                    f"maximum allowed {Config.MAX_LEVERAGE}."
+                    f"maximum allowed "
+                    f"{Config.MAX_LEVERAGE}."
                 )
             }
 
+        # --------------------------------------------------------
+        # NUMERIC VALUES
+        # --------------------------------------------------------
+
         try:
+
             entry = float(entry)
             stop = float(stop)
             tp1 = float(tp1)
             tp2 = float(tp2)
             quantity = float(quantity)
+
         except Exception:
+
             return {
                 "valid": False,
-                "error": "Invalid numeric order values."
+                "error": (
+                    "Invalid numeric order values."
+                )
             }
 
+        # --------------------------------------------------------
+        # BASIC VALUES
+        # --------------------------------------------------------
+
         if entry <= 0:
+
             return {
                 "valid": False,
-                "error": "Entry price must be greater than zero."
+                "error": (
+                    "Entry price must be greater than zero."
+                )
             }
 
         if quantity <= 0:
+
             return {
                 "valid": False,
-                "error": "Quantity must be greater than zero."
+                "error": (
+                    "Quantity must be greater than zero."
+                )
             }
+
+        # --------------------------------------------------------
+        # LONG VALIDATION
+        # --------------------------------------------------------
 
         if direction == "LONG":
 
             if stop >= entry:
+
                 return {
                     "valid": False,
-                    "error": "LONG stop must be below entry."
-                }
-
-            if tp1 <= entry:
-                return {
-                    "valid": False,
-                    "error": "LONG TP1 must be above entry."
-                }
-
-            if tp2 <= tp1:
-                return {
-                    "valid": False,
-                    "error": "LONG TP2 must be above TP1."
-                }
-
-        elif direction == "SHORT":
-
-            if stop <= entry:
-                return {
-                    "valid": False,
-                    "error": "SHORT stop must be above entry."
-                }
-
-            if tp1 >= entry:
-                return {
-                    "valid": False,
-                    "error": "SHORT TP1 must be below entry."
-                }
-
-            if tp2 >= tp1:
-                return {
-                    "valid": False,
-                    "error": "SHORT TP2 must be below TP1."
-                }
-
-        # ----------------------------------------------------
-        # Validate exchange market
-        # ----------------------------------------------------
-
-        if symbol not in self.exchange.markets:
-            return {
-                "valid": False,
-                "error": (
-                    f"Exchange does not have market "
-                    f"symbol: {symbol}"
+                    "error": (
+                        "LONG stop must bembol}"
                 )
             }
 
