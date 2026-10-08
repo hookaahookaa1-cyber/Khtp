@@ -654,6 +654,11 @@ class TradingBot:
             self.config.TF_4H
         )
 
+        df5 = self.market.fetch(
+            symbol,
+            self.config.TF_ENTRY
+        )
+
         if (
             df15 is None
             or df1 is None
