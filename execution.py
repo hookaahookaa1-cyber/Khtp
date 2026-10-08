@@ -72,28 +72,27 @@ class ExecutionEngine:
             if self.environment == "DEMO":
                 self.exchange.enable_demo_trading(True)
 
-            self.exchange.load_markets()
 
             self.exchange.load_markets()
 
-swap_symbols = [
-    market_symbol
-    for market_symbol, market in self.exchange.markets.items()
-    if market.get("swap")
-]
+            swap_symbols = [
+            market_symbol
+            for market_symbol, market in self.exchange.markets.items()
+            if market.get("swap")
+           ]
 
-logging.info(
-    f"Bitget {self.environment} execution "
-    "environment initialized."
-)
+            logging.info(
+             f"Bitget {self.environment} execution "
+           "environment initialized."
+            )
 
-logging.info(
-    f"Loaded swap markets: {len(swap_symbols)}"
-)
+        logging.info(
+            f"Loaded swap markets: {len(swap_symbols)}"
+        )
 
-logging.info(
-    "Target swap symbols: "
-    + str([
+        logging.info(
+        "Target swap symbols: "
+        + str([
         symbol
         for symbol in (
             "FET/USDT:USDT",
