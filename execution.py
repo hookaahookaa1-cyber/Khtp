@@ -42,7 +42,6 @@ class ExecutionEngine:
     # ============================================================
 
     def _initialize_exchange(self):
-
         if not self.api_key:
             logging.warning(
                 f"Bitget {self.environment} API key is not configured."
@@ -62,7 +61,6 @@ class ExecutionEngine:
             return
 
         try:
-
             options = {
                 "defaultType": "swap"
             }
@@ -75,22 +73,10 @@ class ExecutionEngine:
                 "options": options
             })
 
-            # ----------------------------------------------------
-            # DEMO / PAPER TRADING
-            # ----------------------------------------------------
-
             if self.environment == "DEMO":
                 self.exchange.enable_demo_trading(True)
 
-            # ----------------------------------------------------
-            # LOAD MARKETS
-            # ----------------------------------------------------
-
             self.exchange.load_markets()
-
-            # ----------------------------------------------------
-            # DIAGNOSTICS
-            # ----------------------------------------------------
 
             swap_symbols = [
                 market_symbol
@@ -123,14 +109,8 @@ class ExecutionEngine:
                 f"Target swap symbols: {available_targets}"
             )
 
-            # ----------------------------------------------------
-            # LOG MARKET DETAILS
-            # ----------------------------------------------------
-
             for symbol in target_symbols:
-
                 if symbol in self.exchange.markets:
-
                     market = self.exchange.markets[symbol]
 
                     logging.info(
@@ -140,15 +120,12 @@ class ExecutionEngine:
                         f"contract={market.get('contract')} | "
                         f"contractSize={market.get('contractSize')}"
                     )
-
                 else:
-
                     logging.warning(
                         f"Execution market NOT found: {symbol}"
                     )
 
         except Exception as e:
-
             self.exchange = None
 
             logging.error(
@@ -160,7 +137,6 @@ class ExecutionEngine:
     # ============================================================
 
     def is_ready(self):
-
         return self.exchange is not None
 
     # ============================================================
@@ -168,12 +144,10 @@ class ExecutionEngine:
     # ============================================================
 
     def fetch_equity(self):
-
         if not self.is_ready():
             return None
 
         try:
-
             balance = self.exchange.fetch_balance()
 
             usdt = balance.get("USDT", {})
@@ -184,31 +158,25 @@ class ExecutionEngine:
                 total = usdt.get("free")
 
             if total is None:
-
                 logging.warning(
                     "USDT equity could not be determined."
                 )
-
                 return None
 
             equity = float(total)
 
             if equity <= 0:
-
                 logging.warning(
                     f"Invalid USDT equity: {equity}"
                 )
-
                 return None
 
             return equity
 
         except Exception as e:
-
             logging.error(
                 f"Equity fetch error: {e}"
             )
-
             return None
 
     # ============================================================
@@ -216,18 +184,14 @@ class ExecutionEngine:
     # ============================================================
 
     def market_info(self, symbol):
-
         if not self.is_ready():
             return None
 
         try:
-
             if symbol not in self.exchange.markets:
-
                 logging.warning(
                     f"Market not found: {symbol}"
                 )
-
                 return None
 
             market = self.exchange.market(symbol)
@@ -239,147 +203,377 @@ class ExecutionEngine:
 
             return {
                 "symbol": symbol,
-
-                "contract": market.get(
-                    "contract",
-                    False
-                ),
-
-                "swap": market.get(
-                    "swap",
-                    False
-                ),
-
-                "contract_size": market.get(
-                    "contractSize"
-                ),
-
-                "amount_min": amount_limits.get(
-                    "min"
-                ),
-
-                "amount_max": amount_limits.get(
-                    "max"
-                ),
-
-                "price_min": price_limits.get(
-                    "min"
-                ),
-
-                "precision_amount": precision.get(
-                    "amount"
-                ),
-
-                "precision_price": precision.get(
-                    "price"
-                )
+                "contract": market.get("contract", False),
+                "swap": market.get("swap", False),
+                "contract_size": market.get("contractSize"),
+                "amount_min": amount_limits.get("min"),
+                "amount_max": amount_limits.get("max"),
+                "price_min": price_limits.get("min"),
+                "precision_amount": precision.get("amount"),
+                "precision_price": precision.get("price")
             }
 
         except Exception as e:
-
             logging.error(
                 f"Market info error {symbol}: {e}"
             )
-
             return None
 
     # ============================================================
     # NORMALIZE QUANTITY
     # ============================================================
 
-    def normalize_quantity(
-        self,
-        symbol,
-        quantity
-    ):
-
+    def normalize_quantity(self, symbol, quantity):
         if not self.is_ready():
             return None
 
         try:
-
             quantity = float(quantity)
 
             if quantity <= 0:
-
                 logging.warning(
                     f"Invalid quantity: {quantity}"
                 )
-
                 return None
 
-            # ----------------------------------------------------
-            # SYMBOL CHECK
-            # ----------------------------------------------------
-
             logging.info(
-                f"Execution market check: "
-                f"requested={symbol}"
+                f"Execution market check: requested={symbol}"
             )
 
-            symbol_exists = (
-                symbol in self.exchange.markets
-            )
+            symbol_exists = symbol in self.exchange.markets
 
             logging.info(
-                f"Execution symbol exists="
-                f"{symbol_exists}"
+                f"Execution symbol exists={symbol_exists}"
             )
 
             if not symbol_exists:
-
                 logging.error(
-                    f"Execution symbol does not exist: "
-                    f"{symbol}"
+                    f"Execution symbol does not exist: {symbol}"
                 )
-
                 return None
-
-            # ----------------------------------------------------
-            # MARKET
-            # ----------------------------------------------------
 
             market = self.exchange.market(symbol)
 
             if not market.get("contract", False):
-
                 logging.error(
-                    f"Market is not a contract market: "
-                    f"{symbol}"
+                    f"Market is not a contract market: {symbol}"
                 )
-
                 return None
 
-            # ----------------------------------------------------
-            # PRECISION
-            # ----------------------------------------------------
-
-            formatted = (
-                self.exchange.amount_to_precision(
-                    symbol,
-                    quantity
-                )
+            formatted = self.exchange.amount_to_precision(
+                symbol,
+                quantity
             )
 
             normalized = float(formatted)
 
             if normalized <= 0:
-
                 logging.error(
                     f"Normalized quantity is invalid: "
-                    f"{symbol} "
-                    f"quantity={normalized}"
+                    f"{symbol} quantity={normalized}"
                 )
-
                 return None
-
-            # ----------------------------------------------------
-            # MINIMUM
-            # ----------------------------------------------------
 
             minimum = (
                 market
                 .get("limits", {})
+                .get("amount", {})
+                .get("min")
+            )
+
+            if minimum is not None:
+                minimum = float(minimum)
+
+                if normalized < minimum:
+                    logging.warning(
+                        f"Quantity below exchange minimum: "
+                        f"{symbol} "
+                        f"quantity={normalized} "
+                        f"minimum={minimum}"
+                    )
+                    return None
+
+            logging.info(
+                f"Quantity normalized successfully: "
+                f"{symbol} "
+                f"requested={quantity} "
+                f"normalized={normalized}"
+            )
+
+            return normalized
+
+        except Exception as e:
+            logging.error(
+                f"Quantity normalization error "
+                f"{symbol}: {e}"
+            )
+            return None
+
+    # ============================================================
+    # VALIDATE ORDER
+    # ============================================================
+
+    def validate_order(
+        self,
+        symbol,
+        direction,
+        quantity,
+        leverage,
+        entry,
+        stop,
+        tp1,
+        tp2
+    ):
+        if not self.is_ready():
+            return {
+                "valid": False,
+                "error": "Execution exchange is not ready."
+            }
+
+        if direction not in ("LONG", "SHORT"):
+            return {
+                "valid": False,
+                "error": f"Invalid direction: {direction}"
+            }
+
+        try:
+            leverage = int(leverage)
+        except Exception:
+            return {
+                "valid": False,
+                "error": "Invalid leverage."
+            }
+
+        if leverage <= 0:
+            return {
+                "valid": False,
+                "error": "Leverage must be greater than zero."
+            }
+
+        if leverage > Config.MAX_LEVERAGE:
+            return {
+                "valid": False,
+                "error": (
+                    f"Leverage {leverage} exceeds "
+                    f"maximum allowed {Config.MAX_LEVERAGE}."
+                )
+            }
+
+        try:
+            entry = float(entry)
+            stop = float(stop)
+            tp1 = float(tp1)
+            tp2 = float(tp2)
+            quantity = float(quantity)
+        except Exception:
+            return {
+                "valid": False,
+                "error": "Invalid numeric order values."
+            }
+
+        if entry <= 0:
+            return {
+                "valid": False,
+                "error": "Entry price must be greater than zero."
+            }
+
+        if quantity <= 0:
+            return {
+                "valid": False,
+                "error": "Quantity must be greater than zero."
+            }
+
+        if direction == "LONG":
+            if stop >= entry:
+                return {
+                    "valid": False,
+                    "error": "LONG stop must be below entry."
+                }
+
+            if tp1 <= entry:
+                return {
+                    "valid": False,
+                    "error": "LONG TP1 must be above entry."
+                }
+
+            if tp2 <= tp1:
+                return {
+                    "valid": False,
+                    "error": "LONG TP2 must be above TP1."
+                }
+
+        else:
+            if stop <= entry:
+                return {
+                    "valid": False,
+                    "error": "SHORT stop must be above entry."
+                }
+
+            if tp1 >= entry:
+                return {
+                    "valid": False,
+                    "error": "SHORT TP1 must be below entry."
+                }
+
+            if tp2 >= tp1:
+                return {
+                    "valid": False,
+                    "error": "SHORT TP2 must be below TP1."
+                }
+
+        if symbol not in self.exchange.markets:
+            return {
+                "valid": False,
+                "error": (
+                    f"Exchange does not have market "
+                    f"symbol: {symbol}"
+                )
+            }
+
+        market = self.exchange.market(symbol)
+
+        if not market.get("contract", False):
+            return {
+                "valid": False,
+                "error": (
+                    f"Market is not a contract market: "
+                    f"{symbol}"
+                )
+            }
+
+        if not market.get("swap", False):
+            return {
+                "valid": False,
+                "error": (
+                    f"Market is not a swap market: "
+                    f"{symbol}"
+                )
+            }
+
+        normalized_quantity = self.normalize_quantity(
+            symbol,
+            quantity
+        )
+
+        if normalized_quantity is None:
+            return {
+                "valid": False,
+                "error": (
+                    f"Quantity normalization failed "
+                    f"for {symbol}."
+                )
+            }
+
+        return {
+            "valid": True,
+            "error": None,
+            "symbol": symbol,
+            "direction": direction,
+            "quantity": normalized_quantity,
+            "leverage": leverage,
+            "entry": entry,
+            "stop": stop,
+            "tp1": tp1,
+            "tp2": tp2
+        }
+
+    # ============================================================
+    # PREPARE ORDER
+    # ============================================================
+
+    def prepare_order(
+        self,
+        symbol,
+        direction,
+        quantity,
+        leverage,
+        entry,
+        stop,
+        tp1,
+        tp2
+    ):
+        validation = self.validate_order(
+            symbol=symbol,
+            direction=direction,
+            quantity=quantity,
+            leverage=leverage,
+            entry=entry,
+            stop=stop,
+            tp1=tp1,
+            tp2=tp2
+        )
+
+        if not validation.get("valid"):
+            return {
+                "ready": False,
+                "environment": self.environment,
+                "symbol": symbol,
+                "direction": direction,
+                "error": validation.get("error")
+            }
+
+        normalized_quantity = validation["quantity"]
+
+        if direction == "LONG":
+            side = "buy"
+            close_side = "sell"
+        else:
+            side = "sell"
+            close_side = "buy"
+
+        return {
+            "ready": True,
+            "environment": self.environment,
+            "symbol": symbol,
+            "direction": direction,
+            "side": side,
+            "close_side": close_side,
+            "quantity": normalized_quantity,
+            "leverage": validation["leverage"],
+            "entry": validation["entry"],
+            "stop": validation["stop"],
+            "tp1": validation["tp1"],
+            "tp2": validation["tp2"],
+            "margin_mode": "isolated",
+            "execution_enabled": False
+        }
+
+    # ============================================================
+    # EXECUTE
+    # ============================================================
+
+    def execute(self, order_plan, mode="MANUAL"):
+        if mode != "AUTO":
+            return {
+                "success": False,
+                "executed": False,
+                "environment": self.environment,
+                "error": (
+                    "Automatic execution is blocked "
+                    "because the bot is not in AUTO mode."
+                )
+            }
+
+        if not order_plan:
+            return {
+                "success": False,
+                "executed": False,
+                "environment": self.environment,
+                "error": "Empty order plan."
+            }
+
+        # Actual order submission is intentionally disabled
+        # during the initial validation stage.
+
+        return {
+            "success": False,
+            "executed": False,
+            "environment": self.environment,
+            "error": (
+                "Order execution is disabled during "
+                "the initial validation stage."
+            )
+        }
                 .get("amount", {})
                 .get("min")
             )
@@ -593,6 +787,10 @@ class ExecutionEngine:
             "tp2": tp2
         }
 
+    # ============================================================
+    # PREPARE ORDER
+    # ============================================================
+
     def prepare_order(
         self,
         symbol,
@@ -604,6 +802,7 @@ class ExecutionEngine:
         tp1,
         tp2
     ):
+
         validation = self.validate_order(
             symbol=symbol,
             direction=direction,
@@ -616,6 +815,7 @@ class ExecutionEngine:
         )
 
         if not validation.get("valid"):
+
             return {
                 "ready": False,
                 "environment": self.environment,
@@ -647,17 +847,21 @@ class ExecutionEngine:
             "tp1": validation["tp1"],
             "tp2": validation["tp2"],
             "margin_mode": "isolated",
-
-            # ------------------------------------------------
-            # IMPORTANT:
-            # Actual order submission remains disabled.
-            # ------------------------------------------------
             "execution_enabled": False
         }
 
-    def execute(self, order_plan, mode="MANUAL"):
+    # ============================================================
+    # EXECUTE
+    # ============================================================
+
+    def execute(
+        self,
+        order_plan,
+        mode="MANUAL"
+    ):
 
         if mode != "AUTO":
+
             return {
                 "success": False,
                 "executed": False,
@@ -669,6 +873,7 @@ class ExecutionEngine:
             }
 
         if not order_plan:
+
             return {
                 "success": False,
                 "executed": False,
@@ -676,27 +881,6 @@ class ExecutionEngine:
                 "error": "Empty order plan."
             }
 
-        # ----------------------------------------------------
-        # ACTUAL ORDER EXECUTION IS STILL DISABLED.
-        # We are currently validating:
-        # - Bitget market loading
-        # - symbol resolution
-        # - quantity
-        # - leverage
-        # - SL/TP
-        # - demo environment
-        # ----------------------------------------------------
-
-        return {
-            "success": False,
-            "executed": False,
-            "environment": self.environment,
-            "error": (
-                "Order execution is disabled during "
-                "the initial validation stage."
-            )
-        }      
-
         return {
             "success": False,
             "executed": False,
@@ -706,48 +890,4 @@ class ExecutionEngine:
                 "the initial validation stage."
             )
         }
-            "quantity": normalized_quantity,
-            "leverage": validation["leverage"],
-            "entry": validation["entry"],
-            "stop": validation["stop"],
-            "tp1": validation["tp1"],
-            "tp2": validation["tp2"],
-            "margin_mode": "isolated",
 
-            # Actual order submission is still disabled.
-            "execution_enabled": False
-        }
-
-    def execute(self, order_plan, mode="MANUAL"):
-
-        if mode != "AUTO":
-            return {
-                "success": False,
-                "executed": False,
-                "environment": self.environment,
-                "error": (
-                    "Automatic execution is blocked "
-                    "because the bot is not in AUTO mode."
-                )
-            }
-
-        if not order_plan:
-            return {
-                "success": False,
-                "executed": False,
-                "environment": self.environment,
-                "error": "Empty order plan."
-            }
-
-        # Actual order execution remains disabled
-        # during the initial validation stage.
-
-        return {
-            "success": False,
-            "executed": False,
-            "environment": self.environment,
-            "error": (
-                "Order execution is disabled during "
-                "the initial validation stage."
-            )
-        }
