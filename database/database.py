@@ -1380,7 +1380,7 @@ class Database:
             r_multiple,
             holding_minutes,
             features_json,
-            created_at
+            created_at,
             strategy_id,
             strategy_version,
             entry_method,
@@ -1389,20 +1389,15 @@ class Database:
             entry_timeframe,
             entry_score,
             entry_confirmed
-            )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        )
+        VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
         """, (
             trade_id,
             signal_id,
             datetime.utcnow().isoformat(),
-            signal_data.get("strategy_id"),
-            signal_data.get("strategy_version"),
-            signal_data.get("entry_method"),
-            signal_data.get("market_regime"),
-            signal_data.get("timeframe_profile"),
-            signal_data.get("entry_timeframe"),
-            signal_data.get("entry_score"),
-            signal_data.get("entry_confirmed")
             symbol,
             direction,
             signal_data.get("setup"),
@@ -1419,7 +1414,15 @@ class Database:
             r_multiple,
             holding_minutes,
             json.dumps(signal_data),
-            datetime.utcnow().isoformat()
+            datetime.utcnow().isoformat(),
+            signal_data.get("strategy_id"),
+            signal_data.get("strategy_version"),
+            signal_data.get("entry_method"),
+            signal_data.get("market_regime"),
+            signal_data.get("timeframe_profile"),
+            signal_data.get("entry_timeframe"),
+            signal_data.get("entry_score"),
+            signal_data.get("entry_confirmed")
         ))
 
     # ========================================================
