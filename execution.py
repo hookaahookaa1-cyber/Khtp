@@ -136,7 +136,7 @@ class ExecutionEngine:
     # READY CHECK
     # ============================================================
 
-def fetch_equity(self):
+    def fetch_equity(self):
         if not self.is_ready():
             return None
 
