@@ -923,6 +923,20 @@ class TradingBot:
             + ai.get("risk_flags", [])
         )
 
+                strategy_metadata = Strategy.metadata(
+            strategy_id=Strategy.DEFAULT_STRATEGY,
+            entry_method=(
+                entry_timing.get("entry_method")
+                or "PULLBACK"
+            ),
+            market_regime=ai.get(
+                "regime",
+                "UNKNOWN"
+            ),
+            timeframe_profile="15m+1h+4h",
+            entry_timeframe="5m"
+        )
+
         signal = {
             "symbol": symbol,
             "direction": tech["direction"],
