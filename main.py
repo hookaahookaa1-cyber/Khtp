@@ -1284,49 +1284,72 @@ class TradingBot:
                     f"Update processing error: {e}"
                 )
 
-    def run(self):
-        self.telegram.send(
-            "🤖 AI Futures Trading Bot Started\n\n"
-            "Market: Bitget USDT-M Perpetual\n"
-            "Margin: Isolated\n"
-            "Modes: LONG + SHORT\n"
-            "Default Mode: AUTO\n"
-            "AI: Gemini\n"
-            "Risk Engine: Enabled\n\n"
-            "⚠️ Execution layer is being initialized."
-        )
+def run(self):
+        logging.info("DIAGNOSTIC: About to send startup Telegram message")
 
-        self.telegram.send_mode_panel(
-            self.mode
-        )
+        try:
+            result = self.telegram.send(
+                "🤖 AI Futures Trading Bot Started\n\n"
+                "Market: Bitget USDT-M Perpetual\n"
+                "Margin: Isolated\n"
+                "Modes: LONG + SHORT\n"
+                "Default Mode: AUTO\n"
+                "AI: Gemini\n"
+                "Risk Engine: Enabled\n\n"
+                "⚠️ Execution layer is being initialized."
+            )
+            logging.info(
+                "DIAGNOSTIC: Startup Telegram send returned: %s",
+                result
+            )
+        except Exception:
+            logging.exception("DIAGNOSTIC: Startup Telegram send crashed")
+
+        logging.info("DIAGNOSTIC: About to send Telegram mode panel")
+
+        try:
+            result = self.telegram.send_mode_panel(self.mode)
+            logging.info(
+                "DIAGNOSTIC: Telegram mode panel returned: %s",
+                result
+            )
+        except Exception:
+            logging.exception("DIAGNOSTIC: Telegram mode panel crashed")
+
+        logging.info("DIAGNOSTIC: Both startup message attempts finished")
 
         while self.running:
             try:
+                logging.info("DIAGNOSTIC: Main loop started")
                 self.process_updates()
+                logging.info("DIAGNOSTIC: Telegram updates processed")
 
                 for symbol in self.config.SYMBOLS:
                     try:
+                        logging.info(
+                            "DIAGNOSTIC: Evaluating symbol %s", symbol
+                        )
                         self.evaluate(symbol)
-                    except Exception as e:
-                        logging.error(
-                            f"Evaluation error "
-                            f"{symbol}: {e}"
+                        logging.info(
+                            "DIAGNOSTIC: Finished evaluating %s", symbol
+                        )
+                    except Exception:
+                        logging.exception(
+                            "DIAGNOSTIC: Evaluation failed for %s", symbol
                         )
 
                     time.sleep(2)
 
-                time.sleep(
-                    self.config.SCAN_SECONDS
-                )
+                logging.info("DIAGNOSTIC: Scan cycle finished")
+                time.sleep(self.config.SCAN_SECONDS)
 
             except KeyboardInterrupt:
+                logging.warning("DIAGNOSTIC: KeyboardInterrupt received")
                 self.running = False
                 break
 
-            except Exception as e:
-                logging.error(
-                    f"Main loop error: {e}"
-                )
+            except Exception:
+                logging.exception("DIAGNOSTIC: Main loop crashed")
                 time.sleep(10)
 
 
