@@ -1284,7 +1284,7 @@ class TradingBot:
                     f"Update processing error: {e}"
                 )
 
-def run(self):
+    def run(self):
         logging.info("DIAGNOSTIC: About to send startup Telegram message")
 
         try:
