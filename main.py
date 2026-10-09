@@ -385,7 +385,7 @@ Rules:
 2. Do not calculate position size.
 3. Do not choose leverage.
 4. Do not override risk controls.
-5. Consider 10m, 1h, and 4h alignment.
+5. Use 15m, 1h, and 4h as the primary setup timeframes. The 5m timeframe is entry timing only.
 6. Consider BTC context.
 7. Penalize conflicting higher-timeframe trends.
 8. Penalize weak volume.
@@ -475,10 +475,13 @@ class TradingBot:
         self.telegram = Telegram()
         self.market = Market()
 
-        # AUTO is the default mode.
-        # AUTO = automatic execution enabled.
-        # MANUAL = signals only, no automatic execution.
-        self.mode = "AUTO"
+        # Safe default: signal-only until the operator explicitly changes mode.
+        # The execution adapter is still disabled and must not be treated as live-ready.
+        self.mode = "MANUAL"
+        allowed_ids = os.getenv("TELEGRAM_ALLOWED_USER_IDS", "").strip()
+        self.allowed_telegram_user_ids = {
+            item.strip() for item in allowed_ids.split(",") if item.strip()
+        }
 
         # Cooldown is applied ONLY after a successful execution.
         # Candidates/signals that are not executed are never blocked.
@@ -490,6 +493,14 @@ class TradingBot:
 
         if mode not in ("AUTO", "MANUAL"):
             return False
+
+        # LIVE requires two explicit environment gates. This does not enable
+        # order submission; execution.py remains disabled until separately tested.
+        environment = str(getattr(self.execution, "environment", "DEMO")).upper()
+        if mode == "AUTO" and environment == "LIVE":
+            if os.getenv("TRADING_ENV", "DEMO").upper() != "LIVE" or os.getenv("LIVE_TRADING_ARMED", "").lower() != "true":
+                self.telegram.send("🛑 رفض AUTO: بيئة LIVE تحتاج TRADING_ENV=LIVE و LIVE_TRADING_ARMED=true.")
+                return False
 
         self.mode = mode
 
@@ -659,12 +670,10 @@ class TradingBot:
             self.config.TF_ENTRY
         )
 
-        if (
-            df15 is None
-            or df1 is None
-            or df4 is None
-            or df5 is None
-        ):
+        # 15m/1h/4h are primary setup timeframes.
+        # 5m is an optional timing aid only; missing/weak 5m data must not
+        # invalidate an otherwise valid higher-timeframe candidate.
+        if df15 is None or df1 is None or df4 is None:
             return
 
         tech = TechnicalEngine.analyze(
@@ -682,11 +691,17 @@ class TradingBot:
         if tech["score"] < self.config.MIN_TECH_SCORE:
             return
 
-        entry_timing = EntryTimingEngine.analyze(
-            df5,
-            tech["direction"],
-            technical=tech
-                )
+        entry_timing = {}
+        if df5 is not None and not df5.empty:
+            try:
+                entry_timing = EntryTimingEngine.analyze(
+                    df5,
+                    tech["direction"],
+                    technical=tech
+                ) or {}
+            except Exception as exc:
+                logging.warning("5m entry timing unavailable for %s: %s", symbol, exc)
+                entry_timing = {}
 
         entry_status = (
             "CONFIRMED"
@@ -818,11 +833,6 @@ class TradingBot:
         )
 
         risk_block_reasons = []
-
-        if not entry_timing.get("valid", False):
-            risk_block_reasons.append(
-                "5M_ENTRY_NOT_CONFIRMED"
-            )
 
         if len(open_trades) >= self.config.MAX_OPEN_PLANS:
             risk_block_reasons.append(
@@ -1157,8 +1167,19 @@ class TradingBot:
 
         for update in updates:
             try:
+                # Fail closed: no Telegram command or button is accepted unless
+                # an explicit user-ID allowlist is configured.
+                if not self.allowed_telegram_user_ids:
+                    logging.error("Telegram commands disabled: TELEGRAM_ALLOWED_USER_IDS is empty.")
+                    continue
+
                 if "callback_query" in update:
                     callback = update["callback_query"]
+                    sender_id = str((callback.get("from") or {}).get("id", ""))
+                    if sender_id not in self.allowed_telegram_user_ids:
+                        logging.warning("Rejected unauthorized Telegram callback from user_id=%s", sender_id)
+                        self.telegram.answer_callback(callback.get("id", ""))
+                        continue
                     data = callback.get("data", "")
 
                     self.telegram.answer_callback(
@@ -1176,8 +1197,14 @@ class TradingBot:
                 if "message" not in update:
                     continue
 
+                message = update["message"]
+                sender_id = str((message.get("from") or {}).get("id", ""))
+                if sender_id not in self.allowed_telegram_user_ids:
+                    logging.warning("Rejected unauthorized Telegram message from user_id=%s", sender_id)
+                    continue
+
                 text = (
-                    update["message"]
+                    message
                     .get("text", "")
                     .strip()
                 )
@@ -1293,10 +1320,11 @@ class TradingBot:
                 "Market: Bitget USDT-M Perpetual\n"
                 "Margin: Isolated\n"
                 "Modes: LONG + SHORT\n"
-                "Default Mode: AUTO\n"
+                "Default Mode: MANUAL (signals only)\n"
                 "AI: Gemini\n"
                 "Risk Engine: Enabled\n\n"
-                "⚠️ Execution layer is being initialized."
+                "🛡 Default mode: MANUAL.\n"
+                "⚠️ Order submission remains disabled in execution.py."
             )
             logging.info(
                 "DIAGNOSTIC: Startup Telegram send returned: %s",
