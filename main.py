@@ -1330,6 +1330,19 @@ class TradingBot:
                 time.sleep(10)
 
 
+
 if __name__ == "__main__":
-    bot = TradingBot()
-    bot.run()
+    logging.info("DIAGNOSTIC: Starting TradingBot initialization")
+
+    try:
+        bot = TradingBot()
+        logging.info("DIAGNOSTIC: TradingBot initialized successfully")
+
+        logging.info("DIAGNOSTIC: Entering bot.run()")
+        bot.run()
+
+        logging.warning("DIAGNOSTIC: bot.run() returned unexpectedly")
+
+    except Exception:
+        logging.exception("DIAGNOSTIC: Fatal startup error")
+        raise
