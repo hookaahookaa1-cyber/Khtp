@@ -18,24 +18,32 @@ class Telegram:
         }
 
     def _authorized(self, user_id):
-        return bool(self.allowed_user_ids) and str(user_id or "") in self.allowed_user_ids
+        return (
+            bool(self.allowed_user_ids)
+            and str(user_id or "") in self.allowed_user_ids
+        )
 
     def send(self, text, keyboard=None):
         if not self.token or not self.chat_id:
             logging.warning("Telegram credentials missing.")
             return False
+
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         payload = {"chat_id": self.chat_id, "text": text}
         if keyboard:
             payload["reply_markup"] = {"inline_keyboard": keyboard}
+
         try:
             response = requests.post(url, json=payload, timeout=10)
             if not response.ok:
                 logging.error("Telegram send failed: %s", response.text)
                 return False
             return True
+        except requests.exceptions.RequestException:
+            logging.exception("Telegram send request failed.")
+            return False
         except Exception:
-            logging.exception("Telegram send error")
+            logging.exception("Unexpected Telegram send error.")
             return False
 
     def mode_keyboard(self, current_mode):
@@ -62,9 +70,13 @@ class Telegram:
     def poll(self):
         if not self.token:
             return []
+
         if not self.allowed_user_ids:
-            logging.error("Telegram polling disabled: TELEGRAM_ALLOWED_USER_IDS is empty.")
+            logging.error(
+                "Telegram polling disabled: TELEGRAM_ALLOWED_USER_IDS is empty."
+            )
             return []
+
         url = f"https://api.telegram.org/bot{self.token}/getUpdates"
         try:
             response = requests.get(
@@ -75,10 +87,13 @@ class Telegram:
             response.raise_for_status()
             data = response.json()
             if not data.get("ok"):
+                logging.warning("Telegram getUpdates returned ok=false.")
                 return []
+
             updates = data.get("result", [])
             if updates:
                 self.last_update_id = updates[-1]["update_id"]
+
             accepted = []
             for update in updates:
                 if "message" in update:
@@ -87,24 +102,52 @@ class Telegram:
                     user_id = (update["callback_query"].get("from") or {}).get("id")
                 else:
                     user_id = None
+
                 if self._authorized(user_id):
                     accepted.append(update)
                 else:
                     logging.warning("Dropped unauthorized Telegram update.")
+
             return accepted
+
+        except requests.exceptions.ReadTimeout:
+            # A short Telegram polling timeout can be transient.
+            # Retry naturally on the next main-loop cycle.
+            logging.warning(
+                "Telegram polling timed out after 5 seconds; retrying next cycle."
+            )
+            return []
+        except requests.exceptions.RequestException:
+            logging.exception("Telegram polling request failed.")
+            return []
+        except (ValueError, KeyError, TypeError):
+            logging.exception("Could not parse Telegram polling response.")
+            return []
         except Exception:
-            logging.exception("Telegram poll error")
+            logging.exception("Unexpected Telegram polling error.")
             return []
 
     def answer_callback(self, callback_query_id):
         if not self.token or not callback_query_id:
             return False
+
         url = f"https://api.telegram.org/bot{self.token}/answerCallbackQuery"
         try:
             response = requests.post(
-                url, json={"callback_query_id": callback_query_id}, timeout=5
+                url,
+                json={"callback_query_id": callback_query_id},
+                timeout=5,
             )
-            return bool(response.ok)
+            if not response.ok:
+                logging.warning(
+                    "Telegram callback response failed with HTTP %s.",
+                    response.status_code,
+                )
+                return False
+            return True
+        except requests.exceptions.RequestException:
+            logging.exception("Telegram callback response request failed.")
+            return False
         except Exception:
-            logging.exception("Telegram callback response error")
+            logging.exception("Unexpected Telegram callback response error.")
             return False
