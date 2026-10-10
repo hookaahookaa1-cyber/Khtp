@@ -2,9 +2,11 @@ name: BRR Strategy Tests
 
 on:
 push:
-branches: ["main"]
+branches:
+- main
 pull_request:
-branches: ["main"]
+branches:
+- main
 workflow_dispatch:
 
 permissions:
@@ -13,10 +15,9 @@ contents: read
 jobs:
 test-brr:
 runs-on: ubuntu-latest
-
 steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+- name: Checkout repository
+uses: actions/checkout@v4
 
   - name: Set up Python
     uses: actions/setup-python@v5
@@ -29,5 +30,4 @@ steps:
       pip install pandas pytest
 
   - name: Run BRR tests
-    run: |
-      python -m pytest -v test_brr_strategy.py
+    run: python -m pytest -v test_brr_strategy.py
